@@ -1,45 +1,88 @@
-# Sentinel Hub Configuration
-# Replace these with your CDSE credentials from https://dataspace.copernicus.eu
+"""
+Sentinel-2 Timelapse Configuration
+Based on Copernicus Data Space Ecosystem (CDSE) requirements
+and deep-research-report recommendations for multi-source architecture.
+"""
 
-CDSE_CLIENT_ID = "sh-0a34fef5-b4e5-44ed-88ae-96c032e64cf8"
-CDSE_CLIENT_SECRET = "Mtl9tNIAN5AJqaFgpnrSNXCIU6Cdxkxq"
+import os
 
-# Choose your AOI
+# ── Provider API Keys (read from environment) ──────────────────────
+
+# Planet Labs (PlanetScope ~3m) — commercial, daily revisit
+# Get key: https://www.planet.com/account/ → API Key
+PL_API_KEY = os.environ.get('PL_API_KEY', '').strip()
+
+# Copernicus Data Space Ecosystem (CDSE) — free Sentinel Hub access
+# Register: https://dataspace.copernicus.eu → OAuth2 credentials
+CDSE_CLIENT_ID = os.environ.get('CDSE_CLIENT_ID', '').strip() or None
+CDSE_CLIENT_SECRET = os.environ.get('CDSE_CLIENT_SECRET', '').strip() or None
+
+# AOI Configuration from research document (exact CRS84 bboxes)
+# Format: [lon_min, lat_min, lon_max, lat_max]
 AOI_CONFIG = {
-    "tehran": {
-        "name": "Tehran 5km Box",
-        "bbox": [51.362049329675, 35.666442220625, 51.417350670325, 35.711357779375],
+    'tehran': {
+        'name': 'Tehran',
+        'bbox': [51.362049329675, 35.666442220625, 51.417350670325, 35.711357779375],
+        'folder': 'archive/tehran',
+        'city_center': (35.6889, 51.3897)
     },
-    "isfahan": {
-        "name": "Isfahan 5km Box",
-        "bbox": [51.643602920397, 32.642822220625, 51.696957079603, 32.687737779375],
+    'isfahan': {
+        'name': 'Isfahan',
+        'bbox': [51.643602920397, 32.642822220625, 51.696957079603, 32.687737779375],
+        'folder': 'archive/isfahan',
+        'city_center': (32.66528, 51.67028)
+    },
+    'isfahan_center': {
+        'name': 'Isfahan City Center',
+        'bbox': [51.643602920397, 32.642822220625, 51.696957079603, 32.687737779375],
+        'folder': 'archive/isfahan_center',
+        'city_center': (32.66528, 51.67028)
     }
 }
 
-# Sentinel Hub API endpoints
-CDSE_TOKEN_URL = "https://identity.dataspace.copernicus.eu/auth/realms/CDSE/protocol/openid-connect/token"
-CDSE_CATALOG_URL = "https://sh.dataspace.copernicus.eu/api/v1/catalog/1.0.0/search"
-CDSE_PROCESS_URL = "https://sh.dataspace.copernicus.eu/api/v1/process"
+# Sentinel-2 L2A Configuration
+SENTINEL_COLLECTION = 'sentinel-2-l2a'
 
-# Sentinel Hub Configuration Instance ID
-INSTANCE_ID = "b17a2514-69c8-4d4b-93db-dd151221750f"
+# Cloud Filtering Configuration (MCP - Mosaicking Cloud Probability)
+# Options: 20, 40, 60 (percent)
+# 20: only very clear pixels (more gaps)
+# 40: balanced (recommended)
+# 60: highest retention but tolerates thin clouds
+MCP_CLOUD_THRESHOLD = 40  # Cloud cover percentage threshold
 
-# Time range for time-lapse
-START_DATE = "2026-02-20T00:00:00Z"  # Earlier to capture more data
-END_DATE = "2026-03-05T23:59:59Z"    # Through March 5
+# Image Processing
+OUTPUT_WIDTH = 512
+OUTPUT_HEIGHT = 512
+GIF_FRAME_DURATION = 500  # milliseconds
+GIF_LOOP = 0  # infinite loop
 
-# Cloud coverage threshold (percent)
-MAX_CLOUD_COVERAGE = 80  # Very relaxed to get any available data
+# Output directories
+TIMELAPSE_OUTPUT = 'timelapse_output'
+ARCHIVE_BASE = 'archive'
 
-# Processing parameters
-OUTPUT_WIDTH = 1024   # Increased for better quality
-OUTPUT_HEIGHT = 1024
-MCP_THRESHOLD = 40  # Cloud probability threshold: 20/40/60
+# API Timeouts and Retries
+API_TIMEOUT = 30  # seconds for API calls
+DOWNLOAD_TIMEOUT = 300  # seconds for image downloads
+MAX_RETRIES = 3
 
-# Export settings
-EXPORT_FORMAT = "geotiff"  # "geotiff" or "png"
-ARCHIVE_DIR = "archive"
-OUTPUT_DIR = "timelapse_output"
+# ── Change Detection Configuration ──────────────────────────────────
 
-# Visualization type
-VISUALIZATION = "true_color"  # "true_color" or "swir"
+# Pixel differencing threshold (0-1 normalized RGB difference)
+CHANGE_PIXEL_DIFF_THRESHOLD = 0.12
+
+# NDVI difference threshold
+CHANGE_NDVI_DIFF_THRESHOLD = 0.15
+
+# Minimum blob area (pixels) to count as real change
+CHANGE_MIN_BLOB_PIXELS = 50
+
+# Weight balance for combined signal
+CHANGE_NDVI_WEIGHT = 0.4
+CHANGE_RGB_WEIGHT = 0.6
+
+# Change event database (SQLite)
+CHANGE_DB_PATH = 'timelapse_output/change_events.db'
+
+# Legacy compatibility (deprecated - use CDSE_* instead)
+MAX_CLOUD_COVERAGE = 80
+TIMELAPSE_FPS = 2

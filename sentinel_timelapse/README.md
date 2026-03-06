@@ -1,464 +1,263 @@
-# 🛰️ Sentinel-2 Time-Lapse Analysis System
+# 🛰️ Iran OSINT Damage Assessment Platform
 
-A complete satellite imagery analysis platform with **AI-powered change detection** and **professional GUI interface**.
+![Version](https://img.shields.io/badge/version-6.0-red)
+![License](https://img.shields.io/badge/license-MIT-green)
+![React](https://img.shields.io/badge/React-18.3-blue)
+![Python](https://img.shields.io/badge/Python-3.11+-yellow)
+
+Real-time satellite imagery analysis platform for monitoring structural changes and damage assessment in Iran using Sentinel-2 and Sentinel-1 SAR data.
 
 ---
 
-## ⚡ Quick Start (30 seconds)
+## 🌐 Live Demo
+
+### 👉 [Open Live App](https://formula-sleeve-mixing-reconstruction.trycloudflare.com)
+
+> ⚠️ Note: Demo URL may change periodically. Check back here for the latest link.
+
+---
+
+## 📸 Screenshots
+
+### Main Dashboard
+<p align="center">
+  <img src="docs/screenshots/dashboard.png" alt="Dashboard" width="800">
+</p>
+
+*Interactive map with 175+ strategic targets, real-time OSINT news feed, and satellite imagery controls*
+
+### Satellite Comparison View
+<p align="center">
+  <img src="docs/screenshots/comparison.png" alt="Comparison" width="800">
+</p>
+
+*Before/After comparison with damage heatmap overlay*
+
+### Strike Analysis Panel
+<p align="center">
+  <img src="docs/screenshots/strikes.png" alt="Strikes" width="800">
+</p>
+
+*Detected strike events with confidence scoring and satellite evidence*
+
+### Mobile Responsive
+<p align="center">
+  <img src="docs/screenshots/mobile.png" alt="Mobile" width="300">
+</p>
+
+*Fully responsive design for field operations*
+
+---
+
+## ⚡ Key Features
+
+### 🗺️ Interactive Map
+- **175+ pre-loaded targets** - Military bases, nuclear facilities, air defense sites
+- Real-time clustering and filtering by category
+- Click any location to analyze satellite imagery
+
+### 📡 Multi-Source Satellite Data
+| Source | Type | Resolution | Access |
+|--------|------|------------|--------|
+| Sentinel-2 L2A | Optical | 10m | Free (ESA) |
+| Sentinel-1 SAR | Radar | 10m | Free (ESA) |
+| Planet Labs | Optical | 3m | API Key Required |
+| CDSE | Optical | 10m | OAuth2 |
+
+### 🔍 Damage Detection
+- Pixel-difference change detection algorithm
+- Heatmap visualization of structural changes
+- Confidence scoring (0-100%)
+- Cloud masking with SCL band
+
+### 📰 OSINT News Integration
+- GDELT API real-time news feed
+- Automatic target correlation
+- Conflict event monitoring
+
+---
+
+## 🚀 Quick Start
+
+### Prerequisites
+- Python 3.11+
+- Node.js 20+
+- Git
+
+### Installation
 
 ```bash
-cd ~/Desktop/map_api/sentinel_timelapse
-python3 launch_gui.py
+# Clone the repository
+git clone https://github.com/samo1279/iran-damage-assessment.git
+cd iran-damage-assessment
+
+# Install Python dependencies
+pip install -r requirements.txt
+
+# Build React frontend
+cd frontend
+npm install
+npm run build
+cd ..
+
+# Run the app
+python app.py
 ```
 
-Select **option 1** → GUI opens in 2 seconds!
+🌐 Open: **http://localhost:9000**
 
 ---
 
-## 📊 What It Does
+## 🔑 Environment Variables (Optional)
 
-```
-┌─────────────────────────────────────────────────────┐
-│  📷 Satellite Image Viewer                          │
-│  ┌──────────────────────────────────────────────┐   │
-│  │   Isfahan Time-Lapse: Feb 20 - Mar 4 2026   │   │
-│  │  [═════ Frame Slider ════]  Date: 2026-02-22 │   │
-│  │  Zoom: 1.0× → 1.9×                          │   │
-│  └──────────────────────────────────────────────┘   │
-│                                                      │
-│  ✨ Enhance Image Quality:                          │
-│  • Brightness: [════●═] Adjust lighting            │
-│  • Contrast:   [════●═] Make vivid/dull           │
-│  • Saturation: [════●═] Color intensity           │
-│                                                      │
-│  🤖 AI Analysis (Auto):                            │
-│  • Train model: 15 seconds                         │
-│  • Detect changes: 3 seconds                       │
-│  • Find anomalies: 2 seconds                       │
-│  • Get results: Instant                            │
-│                                                      │
-│  📊 Results Tab:                                   │
-│  ┌──────────────────────────────────────────────┐   │
-│  │ Frame │ Date       │ Similarity │ Changes    │  │
-│  │   2   │ 2026-02-22 │    87%     │ Yes ✓     │  │
-│  │   3   │ 2026-02-25 │    72%     │ Yes ✓     │  │
-│  │   4   │ 2026-02-27 │    82%     │ Yes ✓     │  │
-│  │   5   │ 2026-03-02 │    65%     │ Yes ✓     │  │
-│  │   6   │ 2026-03-04 │    74%     │ Anomaly ⚠️  │  │
-│  └──────────────────────────────────────────────┘   │
-│                                                      │
-│  💾 Export: Save analysis as JSON                  │
----
-
-## 📦 What's Inside
-
-### **Python Scripts (Ready to Use)**
-
-```
-advanced_gui_app.py       ← Main GUI application (632 lines)
-ai_change_trainer.py      ← AI/ML module (280 lines)
-launch_gui.py            ← Easy launcher (95 lines)
-collect_imagery.py       ← Download satellite data
-config.py                ← Configuration settings
-create_gif_timelapse.py  ← GIF generation
-run_full_timelapse.py    ← Run full analysis
-... (5 more scripts)
-```
-
-### **Data Included**
-
-```
-archive/Isfahan/         → 6 satellite images
-archive/Tehran/          → 2 satellite images
-archive/isfahan_city_center/ → Focused area (6 images)
-
-Total: 9.3 MB of real Sentinel-2 L2A imagery
-```
-
-### **What You Can Do Immediately**
-
-✅ View satellite imagery  
-✅ Enhance image quality  
-✅ Train AI models  
-✅ Detect daily changes  
-✅ Find anomalies  
-✅ Compare cities  
-✅ Export results  
-
----
-
-## 🚀 How to Use
-
-### **Step 1: Launch GUI** (30 seconds)
-```bash
-python3 launch_gui.py
-Select option 1 → GUI opens
-```
-
-### **Step 2: Select City**
-```
-Click dropdown: Isfahan or Tehran
-```
-
-### **Step 3: Load Images**
-```
-Click "Load Images" → Satellite images appear
-```
-
-### **Step 4: Browse or Analyze**
-
-**Option A - Just Look:**
-- Use frame slider to browse images
-- Adjust brightness/contrast for clarity
-- Zoom in/out to see details
-
-**Option B - AI Analysis:**
-- Click "Train AI Model" (15 sec)
-- Click "Detect Daily Changes" (3 sec)
-- View results in Analysis tab
-
-### **Step 5: Export**
-```
-Click "Export Results" → JSON file saved
-```
-
----
-
-## 🧠 How AI Works
-
-```
-Image Pair (Day 1 vs Day 2)
-        ↓
-Extract Features (28 numbers)
-        ↓
-Machine Learning Model
-        ↓
-Results:
-  • Change detected? (Yes/No)
-  • How much changed? (0-100%)
-  • Confidence score (0-100%)
-  • Is it anomalous? (Yes/No)
-```
-
-**Models Used:**
-- **RandomForest**: Detects changes (85-95% accurate)
-- **IsolationForest**: Finds anomalies
-- **PCA**: Makes it faster
-
----
-
-## 📱 GUI Layout
-
-```
-┌─────────────────────────────────────────────────────────┐
-│  🛰️ Satellite Analyzer                                  │
-├──────────────────┬──────────────────────────────────────┤
-│  LEFT PANEL      │  RIGHT PANEL                         │
-│  (Controls)      │  (Display)                           │
-│                  │                                      │
-│ 📍 Select City   │  ┌──────────────────────────────┐   │
-│ [Isfahan ▼]      │  │  Satellite Image (700×700)   │   │
-│ [Load Images]    │  │                              │   │
-│                  │  │  (Red/Green/Blue channels)   │   │
-│ 📷 Frame Slider  │  │                              │   │
-│ [═════●═════]    │  └──────────────────────────────┘   │
-│ 1/6              │  [Frame Slider: 1/6]                 │
-│                  │                                      │
-│ ✨ Brightness    │  ┌─ Tabs ──────────────────────┐    │
-│ [═════●═]        │  │ 📷 Viewer │ 📊 Analysis  │    │
-│                  │  │ 📈 Summary               │    │
-│ 🔧 Contrast      │  └──────────────────────────┘    │
-│ [═════●═]        │  Results Table:                    │
-│                  │  Frame │ Date    │ Change│        │
-│ 🎨 Saturation    │  ─────┼─────────┼──────┤        │
-│ [═════●═]        │    2  │ 02-22   │  87% │        │
-│                  │    3  │ 02-25   │  72% │        │
-│ [✅ Apply]       │    4  │ 02-27   │  82% │        │
-│ [↻ Reset]        │                                     │
-│                  │                                      │
-│ 🤖 Train AI      │                                      │
-│ 🔍 Detect        │                                      │
-│ ⚠️ Anomalies     │                                      │
-│ 🏙️ Compare      │                                      │
-│ 💾 Export        │                                      │
-└──────────────────┴──────────────────────────────────────┘
-```
-
----
-
-## ⏱️ Timing
-
-| Task | Time |
-|------|------|
-| Launch GUI | 30 seconds |
-| Load images | 3 seconds |
-| Train AI | 15 seconds |
-| Detect changes | 3 seconds |
-| Find anomalies | 2 seconds |
-| Export results | 1 second |
-| **TOTAL** | **~1 minute** |
-
----
-
-## 🔧 Configuration
-
-Edit `config.py` to customize:
-
-```python
-# Change resolution
-OUTPUT_WIDTH = 1024      # Can change to 2048
-OUTPUT_HEIGHT = 1024
-
-# Change cloud filter
-MAX_CLOUD_COVERAGE = 80  # Lower = stricter
-
-# Change dates
-START_DATE = "2026-02-20"
-END_DATE = "2026-03-05"
-
-# Change AOI (Area of Interest)
-# Isfahan: [51.643603, 32.642822, 51.696957, 32.687738]
-# Tehran: [51.362049, 35.666442, 51.417351, 35.711358]
-```
-
-Then restart GUI to see changes.
-
----
-
-## 📊 Data Info
-
-### Isfahan
-- **6 scenes**: Feb 20, 22, 25, 27, Mar 2, 4
-- **Size**: 5.8 MB (1024×1024 pixels)
-- **Covers**: Full 5×5 km city area
-- **Cloud cover**: 16-78%
-
-### Tehran
-- **2 scenes**: Feb 20, 25
-- **Size**: 1.9 MB
-- **Covers**: Full 5×5 km city area
-- **Cloud cover**: Similar range
-
-### Isfahan City Center (Subset)
-- **6 scenes**: Same dates as Isfahan
-- **Size**: 1.6 MB (focused 2×2 km area)
-- **Use**: Zoom-in analysis
-
----
-
-## ❓ FAQ
-
-**Q: Do I need to download anything?**
-A: No! Data is already included. Just run the GUI.
-
-**Q: Will it work on my computer?**
-A: Yes, if you have Python 3.8+ and the packages installed.
-
-**Q: How do I train the AI?**
-A: Click "Train AI Model" button → Wait 15 seconds → Done!
-
-**Q: Can I use my own satellite data?**
-A: Yes! Put GeoTIFF files in `archive/[CityName]/` folder.
-
-**Q: What if results don't look right?**
-A: Adjust brightness/contrast sliders first. Then retrain AI.
-
-**Q: Can I compare more than 2 cities?**
-A: Yes! Analyze each city, export results, compare JSON files.
-
-**Q: How do I delete bad frames?**
-A: Delete .tif files from `archive/` folder, reload images.
-
----
-
-## 🚨 Troubleshooting
-
-| Problem | Solution |
-|---------|----------|
-| GUI won't start | Install PyQt5: `pip install PyQt5` |
-| "Archive not found" | Check `archive/Isfahan/` has .tif files |
-| AI doesn't work | Make sure 2+ images are loaded first |
-| Slow performance | Reduce OUTPUT_WIDTH to 512 in config.py |
-| Results look wrong | Adjust brightness/contrast, retrain |
-
----
-
-## 📦 Install Dependencies (First Time)
+Copy `.env.example` to `.env`:
 
 ```bash
-pip install PyQt5 scikit-learn scikit-image numpy rasterio opencv-python pillow joblib requests
+cp .env.example .env
 ```
 
-Or let the launcher do it automatically:
-```bash
-python3 launch_gui.py  # Checks & installs automatically
+Configure optional API keys:
+
+```env
+# Planet Labs - high-resolution imagery (3m)
+PL_API_KEY=your_planet_api_key
+
+# Copernicus Data Space - direct ESA access
+CDSE_CLIENT_ID=your_client_id
+CDSE_CLIENT_SECRET=your_client_secret
+```
+
+> 💡 The app works without these keys using free Element84 STAC API
+
+---
+
+## 📁 Project Structure
+
+```
+iran-damage-assessment/
+├── app.py                 # Flask API server (17+ endpoints)
+├── osint_engine.py        # 175+ targets + GDELT integration
+├── change_detector.py     # Damage detection algorithms
+├── multi_source.py        # Multi-satellite data fetching
+├── planet_fetcher.py      # Planet Labs API
+│
+├── frontend/              # React 18 + TypeScript + Vite
+│   ├── src/
+│   │   ├── components/    # MapView, Panels, UI
+│   │   ├── api/           # TanStack Query hooks
+│   │   └── store/         # Zustand state management
+│   └── dist/              # Production build
+│
+├── timelapse_output/      # Generated GIFs
+├── requirements.txt       # Python dependencies
+├── package.json           # Node dependencies
+└── .env.example           # Environment template
 ```
 
 ---
 
-## 🎓 Usage Examples
+## 🛠️ Tech Stack
 
-### Example 1: Quick Visual (5 min)
-```
-1. python3 launch_gui.py
-2. Select Isfahan
-3. Click Load Images
-4. Use slider to browse
-5. Adjust brightness if needed
-```
+### Backend
+| Technology | Purpose |
+|------------|---------|
+| Flask | Web framework & API |
+| Rasterio | GeoTIFF processing |
+| OpenCV | Image analysis |
+| NumPy | Array operations |
+| Pillow | Image manipulation |
 
-### Example 2: Full Analysis (2 min)
-```
-1. Select city + Load Images
-2. Click "Train AI Model"
-3. Click "Detect Daily Changes"
-4. View results
-5. Click "Export Results"
-```
+### Frontend
+| Technology | Purpose |
+|------------|---------|
+| React 18 | UI framework |
+| TypeScript | Type safety |
+| Vite | Build tool |
+| TanStack Query | Data fetching |
+| Zustand | State management |
+| Tailwind CSS | Styling |
+| React-Leaflet | Interactive maps |
+| Recharts | Data visualization |
 
-### Example 3: Find Problems (3 min)
-```
-1. Train AI Model
-2. Click "Find Anomalies"
-3. Review flagged dates
-4. Click on each flagged date to inspect
-5. Export findings
-```
-
----
-
-## 🏗️ Architecture
-
-```
-User Interface (PyQt5)
-    ↓
-Advanced GUI App (advanced_gui_app.py)
-    ├─ Image Viewer Module
-    ├─ Optimization Module
-    └─ AI Analysis Module
-             ↓
-AI Trainer (ai_change_trainer.py)
-    ├─ Feature Extraction
-    ├─ ML Models (RandomForest, IsolationForest)
-    ├─ Model Training
-    └─ Predictions
-             ↓
-Data Layer
-    ├─ GeoTIFF Reader (rasterio)
-    ├─ Satellite Archive
-    └─ Model Storage (trained_models/)
-             ↓
-Output
-    ├─ Analysis Results (JSON)
-    ├─ Reports (daily_reports/)
-    └─ Exports (exports/)
-```
+### Data Sources
+| API | Data |
+|-----|------|
+| Element84 STAC | Sentinel-2/1 catalog |
+| Copernicus CDSE | ESA data access |
+| GDELT | News & events |
 
 ---
 
-## 📈 Output Example
+## 📡 API Reference
 
-**Analysis Tab Results:**
-```
-Frame │ Date       │ Similarity │ Changes │ Anomaly
-──────┼────────────┼────────────┼─────────┼────────
-  2   │ 2026-02-22 │    87%     │ Yes ✓   │ Normal
-  3   │ 2026-02-25 │    72%     │ Yes ✓   │ Normal
-  4   │ 2026-02-27 │    82%     │ Yes ✓   │ Normal
-  5   │ 2026-03-02 │    65%     │ Yes ✓   │ Normal
-  6   │ 2026-03-04 │    74%     │ Yes ✓   │ Anomaly ⚠️
-```
-
-**Export JSON:**
-```json
-{
-  "aoi": "Isfahan",
-  "timestamp": "2026-03-05T12:30:45",
-  "frames": 6,
-  "daily_changes": [
-    {"frame": 2, "similarity": 0.87, "change": true, "confidence": 0.92}
-  ]
-}
-```
+| Endpoint | Method | Description |
+|----------|--------|-------------|
+| `/api/targets` | GET | Get all 175+ targets |
+| `/api/strikes` | GET | Get detected strike events |
+| `/api/news` | GET | Get GDELT news feed |
+| `/api/stats` | GET | Dashboard statistics |
+| `/api/generate-timelapse` | POST | Create before/after GIF |
+| `/api/search-scenes` | POST | Search satellite imagery |
+| `/api/data-availability` | POST | Check image availability |
+| `/api/analyze-change` | POST | Run damage detection |
 
 ---
 
-## 🎯 Next Steps
+## 🚀 Deployment
 
-1. **Run it:** `python3 launch_gui.py`
-2. **Try it:** Click every button, see what happens
-3. **Analyze:** Select city → Load → Train → Detect
-4. **Export:** Save results for later analysis
-5. **Extend:** Edit `config.py` for new data/settings
-
----
-
-## 📁 File Reference
-
-| File | Purpose | Size |
-|------|---------|------|
-| `advanced_gui_app.py` | Main GUI application | 632 lines |
-| `ai_change_trainer.py` | AI/ML models | 280 lines |
-| `launch_gui.py` | Easy launcher | 95 lines |
-| `config.py` | Settings & credentials | 46 lines |
-| `collect_imagery.py` | Download satellite data | 265 lines |
-| `create_gif_timelapse.py` | Make GIF animations | 95 lines |
-| `run_full_timelapse.py` | Run complete pipeline | 80 lines |
-
-**Total:** 12 Python scripts, 1,500+ lines of code
-
----
-
-## 💾 Disk Space
-
-```
-Code:              500 KB
-Satellite data:    9.3 MB
-Trained models:    ~5 MB (after first training)
-Reports/exports:   Variable
-
-Total:             ~15 MB minimum
-Recommended:       10 GB for extended datasets
-```
-
----
-
-## ✅ Status
-
-- ✅ Fully functional
-- ✅ All dependencies installed
-- ✅ Satellite data included
-- ✅ Configuration ready
-- ✅ Ready to use immediately
-
----
-
-## 🚀 Start Now
+### Deploy to Your Server
 
 ```bash
-python3 launch_gui.py
+# On your Linux server
+git clone https://github.com/samo1279/iran-damage-assessment.git
+cd iran-damage-assessment
+
+# Setup
+python3 -m venv venv
+source venv/bin/activate
+pip install -r requirements.txt
+cd frontend && npm install && npm run build && cd ..
+
+# Run with Gunicorn
+gunicorn app:app --bind 0.0.0.0:9000 --workers 4
 ```
 
-That's it! 🎉
+### Using Cloudflare Tunnel (Hide IP)
+
+```bash
+cloudflared tunnel --url http://localhost:9000
+```
 
 ---
 
-**Version:** 1.0  
-**Last Updated:** March 5, 2026  
-**Status:** Production Ready
+## 🤝 Contributing
 
-# 2. Collect imagery (Feb 24 - Mar 5)
-python3 collect_imagery.py tehran
+1. Fork the repository
+2. Create feature branch (`git checkout -b feature/amazing`)
+3. Commit changes (`git commit -m 'Add feature'`)
+4. Push to branch (`git push origin feature/amazing`)
+5. Open Pull Request
 
-# 3. Check downloaded files
-ls -lh archive/tehran/
+---
 
-# 4. Create 2 fps time-lapse
-python3 create_timelapse.py --aoi tehran --fps 2
+## 📜 License
 
-# 5. Watch the result
-open timelapse_output/timelapse.mp4
-```
+MIT License - See [LICENSE](LICENSE) for details.
 
-Expected result: **~10-day animated sequence** showing changes in Tehran over the period.
+---
 
+## 👤 Author
+
+**samo1279** - [@samo1279](https://github.com/samo1279)
+
+---
+
+## ⭐ Star History
+
+If this project helps you, please give it a ⭐!
+
+---
+
+## ⚠️ Disclaimer
+
+This tool uses **publicly available** satellite data from ESA Copernicus program. All analysis is based on open-source intelligence (OSINT) methods. For research and educational purposes only.

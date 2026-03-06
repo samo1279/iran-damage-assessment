@@ -1,0 +1,56 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* Scrollbar */
+::-webkit-scrollbar { width: 6px; }
+::-webkit-scrollbar-track { background: #0d1117; }
+::-webkit-scrollbar-thumb { background: #30363d; border-radius: 3px; }
+
+/* Dark Leaflet container */
+.leaflet-container { background: #0d1117 !important; }
+
+/* City labels on map */
+.city-label {
+  font-size: 11px;
+  font-weight: 700;
+  color: #fff;
+  text-shadow: 0 0 4px #000, 0 0 4px #000;
+  white-space: nowrap;
+}
+
+/* Target tooltip label */
+.target-label {
+  font-size: 9px;
+  font-weight: 600;
+  color: #ffd700 !important;
+  background: rgba(0,0,0,.7) !important;
+  border: 1px solid #444 !important;
+  padding: 1px 5px !important;
+  box-shadow: none !important;
+}
+.target-label::before { display: none !important; }
+
+/* Pulse animation for live indicator */
+@keyframes pulse-live {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.3; }
+}
+.animate-pulse-live {
+  animation: pulse-live 2s infinite;
+}
+
+/* Mobile safe area padding */
+.safe-area-pb {
+  padding-bottom: env(safe-area-inset-bottom, 8px);
+}
+
+/* Ensure mobile touch targets are at least 44px */
+@media (max-width: 768px) {
+  .leaflet-control-zoom a {
+    width: 44px !important;
+    height: 44px !important;
+    line-height: 44px !important;
+    font-size: 20px !important;
+  }
+}

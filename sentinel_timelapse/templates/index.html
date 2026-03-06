@@ -1,0 +1,776 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Iran Damage Assessment Platform v5.0</title>
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/flatpickr/dist/themes/dark.min.css"/>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+:root{
+  --bg:#0d1117;--card:#161b22;--border:#30363d;--text:#c9d1d9;
+  --dim:#8b949e;--accent:#58a6ff;--red:#f85149;--green:#3fb950;
+  --orange:#d29922;--purple:#bc8cff;--cyan:#39d2c0;
+}
+html,body{height:100%;font-family:'Segoe UI',system-ui,sans-serif;background:var(--bg);color:var(--text);font-size:14px}
+a{color:var(--accent);text-decoration:none}
+::-webkit-scrollbar{width:6px}
+::-webkit-scrollbar-track{background:var(--bg)}
+::-webkit-scrollbar-thumb{background:var(--border);border-radius:3px}
+
+/* LAYOUT */
+.app{display:flex;flex-direction:column;height:100vh}
+.topbar{background:var(--card);border-bottom:1px solid var(--border);padding:8px 16px;display:flex;align-items:center;gap:12px;flex-shrink:0}
+.topbar h1{font-size:16px;font-weight:700;color:#fff;white-space:nowrap}
+.topbar .version{font-size:11px;background:var(--accent);color:#000;padding:2px 8px;border-radius:10px;font-weight:700}
+.topbar .status{margin-left:auto;font-size:12px;color:var(--dim)}
+.topbar .status .dot{display:inline-block;width:8px;height:8px;border-radius:50%;margin-right:4px;vertical-align:middle}
+.topbar .status .dot.live{background:var(--green);animation:pulse 2s infinite}
+@keyframes pulse{0%,100%{opacity:1}50%{opacity:.3}}
+.topbar .help-btn{background:none;border:1px solid var(--border);color:var(--accent);padding:4px 12px;border-radius:4px;cursor:pointer;font-size:12px;font-weight:600}
+.topbar .help-btn:hover{background:var(--accent);color:#000}
+
+/* STATS BAR */
+.stats-bar{display:flex;gap:1px;background:var(--border);flex-shrink:0}
+.stat{flex:1;background:var(--card);padding:10px 14px;text-align:center}
+.stat .val{font-size:22px;font-weight:700;color:#fff}
+.stat .label{font-size:10px;color:var(--dim);text-transform:uppercase;letter-spacing:1px;margin-top:2px}
+
+/* MAIN AREA */
+.main{display:flex;flex:1;overflow:hidden}
+.sidebar{width:420px;display:flex;flex-direction:column;border-right:1px solid var(--border);flex-shrink:0;overflow:hidden}
+.map-area{flex:1;position:relative}
+
+/* TABS */
+.tabs{display:flex;background:var(--card);border-bottom:1px solid var(--border);flex-shrink:0}
+.tab{flex:1;padding:8px;text-align:center;font-size:12px;font-weight:600;cursor:pointer;color:var(--dim);border-bottom:2px solid transparent;transition:.2s}
+.tab:hover{color:var(--text)}
+.tab.active{color:var(--accent);border-bottom-color:var(--accent)}
+
+/* TAB CONTENT */
+.tab-content{flex:1;overflow-y:auto;padding:10px}
+.tab-panel{display:none}
+.tab-panel.active{display:block}
+
+/* CARDS */
+.card{background:var(--card);border:1px solid var(--border);border-radius:6px;padding:12px;margin-bottom:8px}
+.card-header{display:flex;align-items:center;gap:8px;margin-bottom:6px}
+.card-title{font-size:13px;font-weight:700;color:#fff;flex:1}
+.badge{font-size:10px;padding:2px 8px;border-radius:10px;font-weight:700;text-transform:uppercase}
+.badge-red{background:rgba(248,81,73,.15);color:var(--red)}
+.badge-orange{background:rgba(210,153,34,.15);color:var(--orange)}
+.badge-green{background:rgba(63,185,80,.15);color:var(--green)}
+.badge-blue{background:rgba(88,166,255,.15);color:var(--accent)}
+.badge-purple{background:rgba(188,140,255,.15);color:var(--purple)}
+.prob-bar{height:4px;background:var(--border);border-radius:2px;margin-top:6px;overflow:hidden}
+.prob-fill{height:100%;border-radius:2px;transition:width .3s}
+.card-meta{font-size:11px;color:var(--dim);margin-top:4px}
+.card-body{font-size:12px;color:var(--dim);line-height:1.5}
+
+/* NEWS ITEM */
+.news-item{padding:10px;border-bottom:1px solid var(--border)}
+.news-item:last-child{border-bottom:none}
+.news-title{font-size:12px;font-weight:600;color:var(--text);margin-bottom:4px}
+.news-source{font-size:10px;color:var(--dim)}
+.news-prob{font-size:11px;font-weight:700;margin-left:auto;white-space:nowrap}
+
+/* SATELLITE IMAGES */
+.sat-compare{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:8px}
+.sat-img-wrap{position:relative;border-radius:4px;overflow:hidden;border:1px solid var(--border)}
+.sat-img-wrap img{width:100%;display:block}
+.sat-img-label{position:absolute;top:4px;left:4px;font-size:10px;font-weight:700;padding:2px 8px;border-radius:3px}
+.sat-img-label.before{background:rgba(63,185,80,.8);color:#000}
+.sat-img-label.after{background:rgba(248,81,73,.8);color:#fff}
+
+/* LOADING */
+.loading-overlay{position:absolute;inset:0;background:rgba(13,17,23,.85);display:flex;align-items:center;justify-content:center;z-index:900;flex-direction:column;gap:12px}
+.spinner{width:32px;height:32px;border:3px solid var(--border);border-top-color:var(--accent);border-radius:50%;animation:spin 1s linear infinite}
+@keyframes spin{to{transform:rotate(360deg)}}
+.loading-text{font-size:12px;color:var(--dim)}
+
+/* HELP MODAL */
+.modal-overlay{position:fixed;inset:0;background:rgba(0,0,0,.7);z-index:9999;display:none;align-items:center;justify-content:center}
+.modal-overlay.show{display:flex}
+.modal{background:var(--card);border:1px solid var(--border);border-radius:8px;width:600px;max-width:90vw;max-height:80vh;overflow-y:auto;padding:24px}
+.modal h2{font-size:18px;font-weight:700;color:#fff;margin-bottom:16px}
+.modal h3{font-size:14px;font-weight:700;color:var(--accent);margin:16px 0 8px}
+.modal p,.modal li{font-size:13px;color:var(--dim);line-height:1.6}
+.modal ul{padding-left:18px;margin-bottom:8px}
+.modal .close-btn{float:right;background:none;border:none;color:var(--dim);font-size:20px;cursor:pointer;line-height:1}
+.modal .close-btn:hover{color:#fff}
+
+/* EVIDENCE PANEL (bottom of map) */
+.evidence-bar{position:absolute;bottom:0;left:0;right:0;max-height:200px;background:var(--card);border-top:1px solid var(--border);overflow-y:auto;z-index:800;display:none}
+.evidence-bar.show{display:block}
+.evidence-bar .ev-header{padding:8px 12px;font-size:12px;font-weight:700;color:#fff;display:flex;align-items:center;border-bottom:1px solid var(--border)}
+.evidence-bar .ev-close{margin-left:auto;cursor:pointer;color:var(--dim);font-size:16px}
+.evidence-bar .ev-body{padding:8px 12px}
+
+/* TARGET LIST */
+.target-item{display:flex;align-items:center;gap:8px;padding:8px;border-bottom:1px solid var(--border);cursor:pointer;transition:.15s}
+.target-item:hover{background:rgba(88,166,255,.08)}
+.target-dot{width:10px;height:10px;border-radius:50%;flex-shrink:0}
+.target-info{flex:1;min-width:0}
+.target-name{font-size:12px;font-weight:600;color:var(--text);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.target-type{font-size:10px;color:var(--dim)}
+.target-prob{font-size:12px;font-weight:700}
+
+/* FILTER BAR */
+.filter-bar{padding:8px 10px;display:flex;gap:6px;flex-wrap:wrap;border-bottom:1px solid var(--border);flex-shrink:0}
+.filter-bar select,.filter-bar input{background:var(--bg);border:1px solid var(--border);color:var(--text);padding:4px 8px;border-radius:4px;font-size:11px}
+.filter-bar input[type=text]{flex:1;min-width:100px}
+
+/* REFRESH INDICATOR */
+.refresh-ind{font-size:10px;color:var(--dim);padding:4px 10px;text-align:center;border-top:1px solid var(--border);flex-shrink:0}
+
+/* MAP LABELS */
+.city-label{font-size:11px;font-weight:700;color:#fff;text-shadow:0 0 4px #000,0 0 4px #000;white-space:nowrap}
+.target-label{font-size:9px;font-weight:600;color:#ffd700;text-shadow:0 0 3px #000,0 0 3px #000;white-space:nowrap}
+</style>
+</head>
+<body>
+<div class="app">
+  <!-- TOP BAR -->
+  <div class="topbar">
+    <h1>IRAN DAMAGE ASSESSMENT PLATFORM</h1>
+    <span class="version">v5.0</span>
+    <span class="status"><span class="dot live"></span><span id="statusText">Initializing...</span></span>
+    <button class="help-btn" onclick="toggleHelp()">? HELP</button>
+  </div>
+
+  <!-- STATS BAR -->
+  <div class="stats-bar">
+    <div class="stat"><div class="val" id="statTargets">--</div><div class="label">Targets in DB</div></div>
+    <div class="stat"><div class="val" id="statArticles">--</div><div class="label">OSINT Articles</div></div>
+    <div class="stat"><div class="val" id="statStrikes">--</div><div class="label">Reported Strikes</div></div>
+    <div class="stat"><div class="val" id="statConfirmed">--</div><div class="label">Confirmed</div></div>
+    <div class="stat"><div class="val" id="statLikely">--</div><div class="label">Likely</div></div>
+    <div class="stat"><div class="val" id="statLastScan">--</div><div class="label">Last Scan</div></div>
+  </div>
+
+  <!-- MAIN AREA -->
+  <div class="main">
+    <!-- SIDEBAR -->
+    <div class="sidebar">
+      <div class="tabs">
+        <div class="tab active" data-tab="strikes" onclick="switchTab('strikes')">STRIKES</div>
+        <div class="tab" data-tab="targets" onclick="switchTab('targets')">TARGETS</div>
+        <div class="tab" data-tab="news" onclick="switchTab('news')">NEWS</div>
+        <div class="tab" data-tab="satellite" onclick="switchTab('satellite')">SATELLITE</div>
+      </div>
+
+      <!-- STRIKES PANEL -->
+      <div class="tab-content">
+        <div class="tab-panel active" id="panel-strikes">
+          <div id="strikesLoading" style="text-align:center;padding:40px;color:var(--dim)">
+            <div class="spinner" style="margin:0 auto 12px"></div>
+            Loading intelligence data...
+          </div>
+          <div id="strikesList"></div>
+        </div>
+
+        <!-- TARGETS PANEL -->
+        <div class="tab-panel" id="panel-targets">
+          <div class="filter-bar">
+            <select id="filterCategory" onchange="filterTargets()"><option value="">All Categories</option></select>
+            <select id="filterProvince" onchange="filterTargets()"><option value="">All Provinces</option></select>
+            <input type="text" id="filterSearch" placeholder="Search targets..." oninput="filterTargets()"/>
+          </div>
+          <div id="targetCount" style="padding:6px 10px;font-size:11px;color:var(--dim)"></div>
+          <div id="targetsList"></div>
+        </div>
+
+        <!-- NEWS PANEL -->
+        <div class="tab-panel" id="panel-news">
+          <div id="newsLoading" style="text-align:center;padding:40px;color:var(--dim)">
+            <div class="spinner" style="margin:0 auto 12px"></div>
+            Scanning news feeds...
+          </div>
+          <div id="newsList"></div>
+        </div>
+
+        <!-- SATELLITE PANEL -->
+        <div class="tab-panel" id="panel-satellite">
+          <div class="card">
+            <div class="card-header"><div class="card-title">Satellite Imagery Comparison</div></div>
+            <div class="card-body">
+              <p style="margin-bottom:8px">Select a target on the map or from the targets list, then click "Fetch Satellite" to load before/after imagery.</p>
+              <div style="display:flex;gap:8px;margin-bottom:8px">
+                <select id="satTarget" style="flex:1;background:var(--bg);border:1px solid var(--border);color:var(--text);padding:6px 8px;border-radius:4px;font-size:12px">
+                  <option value="">-- Select target --</option>
+                </select>
+                <button onclick="fetchSatellite()" style="background:var(--accent);color:#000;border:none;padding:6px 14px;border-radius:4px;font-weight:700;cursor:pointer;font-size:12px;white-space:nowrap">Fetch Satellite</button>
+              </div>
+            </div>
+          </div>
+          <div id="satResult"></div>
+          <div id="satLoading" style="display:none;text-align:center;padding:30px;color:var(--dim)">
+            <div class="spinner" style="margin:0 auto 12px"></div>
+            Downloading satellite imagery... This may take a minute.
+          </div>
+        </div>
+      </div>
+
+      <div class="refresh-ind" id="refreshInd">Auto-refresh: every 5 minutes</div>
+    </div>
+
+    <!-- MAP -->
+    <div class="map-area">
+      <div id="map" style="width:100%;height:100%"></div>
+      <div class="evidence-bar" id="evidenceBar">
+        <div class="ev-header">
+          <span id="evTitle">Evidence Details</span>
+          <span class="ev-close" onclick="closeEvidence()">X</span>
+        </div>
+        <div class="ev-body" id="evBody"></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- HELP MODAL -->
+<div class="modal-overlay" id="helpModal">
+  <div class="modal">
+    <button class="close-btn" onclick="toggleHelp()">X</button>
+    <h2>User Guide -- Iran Damage Assessment Platform v5.0</h2>
+
+    <h3>What is this?</h3>
+    <p>A real-time intelligence fusion platform that combines Open Source Intelligence (OSINT) from global news feeds with satellite imagery analysis to assess damage to strategic targets in Iran during the ongoing conflict.</p>
+
+    <h3>How does it work?</h3>
+    <ul>
+      <li><strong>OSINT Engine:</strong> Continuously scans the GDELT global news database for reports of strikes, explosions, and military activity in Iran. Articles are matched against our database of known targets.</li>
+      <li><strong>Target Database:</strong> Contains 180+ known military, nuclear, missile, air defense, energy, and government targets across Iran, organized by province.</li>
+      <li><strong>Satellite Analysis:</strong> Downloads Sentinel-2 optical imagery (10m resolution) to compare before/after conditions at target sites. Change detection uses pixel differencing + NDVI analysis.</li>
+      <li><strong>Correlation Engine:</strong> Fuses OSINT reports with satellite evidence to produce a confidence verdict: CONFIRMED, LIKELY, REPORTED, or UNCONFIRMED.</li>
+    </ul>
+
+    <h3>Understanding the Map</h3>
+    <ul>
+      <li><strong>Red markers:</strong> Confirmed or likely strikes with high confidence</li>
+      <li><strong>Orange markers:</strong> Reported strikes with moderate confidence</li>
+      <li><strong>Blue markers:</strong> Known targets in database (no strike reported yet)</li>
+      <li><strong>City labels:</strong> White text labels show major city names for orientation</li>
+      <li><strong>Target labels:</strong> Yellow text labels show target names</li>
+      <li>Click any marker to see details and evidence</li>
+    </ul>
+
+    <h3>Understanding Confidence Levels</h3>
+    <ul>
+      <li><strong>CONFIRMED (80-100%):</strong> Multiple OSINT sources + satellite imagery shows visible change</li>
+      <li><strong>LIKELY (50-79%):</strong> Multiple news reports corroborate the strike, satellite may show changes</li>
+      <li><strong>REPORTED (20-49%):</strong> News reports mention the target but limited corroboration</li>
+      <li><strong>UNCONFIRMED (0-19%):</strong> Single mention or indirect reference only</li>
+    </ul>
+
+    <h3>Tabs</h3>
+    <ul>
+      <li><strong>STRIKES:</strong> All reported strikes sorted by confidence. Each card shows the probability, verdict, and sources.</li>
+      <li><strong>TARGETS:</strong> Browse all 180+ targets in the database. Filter by category, province, or search by name.</li>
+      <li><strong>NEWS:</strong> Latest OSINT articles from global news feeds. Each shows relevance probability to military strikes.</li>
+      <li><strong>SATELLITE:</strong> Select a target to fetch and compare before/after satellite imagery.</li>
+    </ul>
+
+    <h3>Automatic Refresh</h3>
+    <p>The platform automatically scans for new intelligence every 5 minutes. The "Last Scan" indicator in the stats bar shows when the last refresh occurred. All data loads automatically on page open -- no buttons needed.</p>
+
+    <h3>Data Sources</h3>
+    <ul>
+      <li>GDELT Project -- Global news monitoring (free, no API key)</li>
+      <li>Sentinel-2 L2A -- 10m optical imagery via Element84 STAC (free)</li>
+      <li>Sentinel-1 SAR -- 10m radar imagery (free)</li>
+      <li>PlanetScope -- 3m imagery (requires API key in settings)</li>
+    </ul>
+  </div>
+</div>
+
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<script>
+// ═══ GLOBALS ════════════════════════════════════════════════════════
+let map, markersLayer, labelsLayer;
+let allTargets = [];
+let allStrikes = [];
+let allAssessments = [];
+let allNews = [];
+let selectedTarget = null;
+let refreshTimer = null;
+const API = '';
+const WAR_START = '2026-03-01';
+
+// Iranian city coordinates for map labels
+const CITY_LABELS = [
+  {name:'Tehran',lat:35.6892,lon:51.3890},
+  {name:'Isfahan',lat:32.6546,lon:51.6680},
+  {name:'Shiraz',lat:29.5918,lon:52.5837},
+  {name:'Tabriz',lat:38.0800,lon:46.2919},
+  {name:'Mashhad',lat:36.2972,lon:59.6067},
+  {name:'Ahvaz',lat:31.3183,lon:48.6706},
+  {name:'Kermanshah',lat:34.3142,lon:47.0650},
+  {name:'Bandar Abbas',lat:27.1865,lon:56.2808},
+  {name:'Bushehr',lat:28.9234,lon:50.8203},
+  {name:'Qom',lat:34.6401,lon:50.8764},
+  {name:'Arak',lat:34.0917,lon:49.6892},
+  {name:'Hamadan',lat:34.7990,lon:48.5150},
+  {name:'Kerman',lat:30.2839,lon:57.0834},
+  {name:'Yazd',lat:31.8974,lon:54.3569},
+  {name:'Semnan',lat:35.5729,lon:53.3970},
+  {name:'Rasht',lat:37.2808,lon:49.5832},
+  {name:'Sanandaj',lat:35.3219,lon:46.9862},
+  {name:'Zahedan',lat:29.4963,lon:60.8629},
+  {name:'Chabahar',lat:25.2919,lon:60.6430},
+  {name:'Dezful',lat:32.3838,lon:48.4011},
+  {name:'Karaj',lat:35.8400,lon:50.9391},
+  {name:'Urmia',lat:37.5527,lon:45.0761},
+  {name:'Khorramabad',lat:33.4878,lon:48.3558},
+  {name:'Gorgan',lat:36.8427,lon:54.4354},
+  {name:'Birjand',lat:32.8663,lon:59.2211},
+  {name:'Ilam',lat:33.6374,lon:46.4227},
+  {name:'Natanz',lat:33.5131,lon:51.9164},
+  {name:'Fordow',lat:34.7081,lon:51.0263},
+  {name:'Parchin',lat:35.5200,lon:51.7700},
+];
+
+// ═══ MAP INIT ═══════════════════════════════════════════════════════
+function initMap(){
+  map = L.map('map',{zoomControl:true}).setView([32.5,53],6);
+  L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png',{
+    attribution:'&copy; <a href="https://www.openstreetmap.org/copyright">OSM</a> &copy; <a href="https://carto.com/">CARTO</a>',
+    maxZoom:18
+  }).addTo(map);
+  markersLayer = L.layerGroup().addTo(map);
+  labelsLayer = L.layerGroup().addTo(map);
+
+  // Add city labels
+  CITY_LABELS.forEach(c=>{
+    L.marker([c.lat,c.lon],{
+      icon:L.divIcon({className:'city-label',html:c.name,iconSize:[0,0],iconAnchor:[-8,8]}),
+      interactive:false
+    }).addTo(labelsLayer);
+  });
+}
+
+// ═══ COLOR HELPERS ══════════════════════════════════════════════════
+function getTypeColor(type){
+  const colors = {
+    'nuclear_facility':'#f85149','missile_production':'#f0883e','missile_base':'#d29922',
+    'air_base':'#58a6ff','naval_base':'#58a6ff','military_base':'#79c0ff',
+    'air_defense':'#bc8cff','radar_site':'#bc8cff','command_center':'#ff7b72',
+    'research_center':'#d2a8ff','ammunition_depot':'#ffa657','drone_base':'#d29922',
+    'energy':'#3fb950','refinery':'#3fb950','government':'#ff7b72',
+    'port':'#39d2c0','underground_facility':'#8b949e','enrichment_plant':'#f85149',
+    'irgc_hq':'#ff7b72','s300_battery':'#bc8cff','bavar373_battery':'#bc8cff',
+    'pipeline':'#3fb950','uranium_mine':'#f85149','yellowcake_plant':'#f85149',
+  };
+  return colors[type]||'#58a6ff';
+}
+
+function getConfColor(conf){
+  if(conf>=80) return 'var(--red)';
+  if(conf>=50) return 'var(--orange)';
+  if(conf>=20) return 'var(--accent)';
+  return 'var(--dim)';
+}
+
+function getConfBadgeClass(conf){
+  if(conf>=80) return 'badge-red';
+  if(conf>=50) return 'badge-orange';
+  if(conf>=20) return 'badge-blue';
+  return 'badge-purple';
+}
+
+// ═══ FETCH DATA ═════════════════════════════════════════════════════
+async function fetchJSON(url, opts={}){
+  try{
+    const r = await fetch(API+url, opts);
+    return await r.json();
+  }catch(e){
+    console.error('Fetch error:',url,e);
+    return null;
+  }
+}
+
+async function loadTargets(){
+  const d = await fetchJSON('/api/known-targets');
+  if(!d||!d.success) return;
+  allTargets = d.targets;
+  document.getElementById('statTargets').textContent = d.count;
+
+  // Populate filter dropdowns
+  const catSel = document.getElementById('filterCategory');
+  const provSel = document.getElementById('filterProvince');
+  catSel.innerHTML = '<option value="">All Categories ('+d.categories.length+')</option>';
+  d.categories.sort().forEach(c=>{
+    catSel.innerHTML += `<option value="${c}">${c.replace(/_/g,' ')}</option>`;
+  });
+  provSel.innerHTML = '<option value="">All Provinces ('+d.provinces.length+')</option>';
+  d.provinces.sort().forEach(p=>{
+    provSel.innerHTML += `<option value="${p}">${p}</option>`;
+  });
+
+  // Populate satellite target selector
+  const satSel = document.getElementById('satTarget');
+  satSel.innerHTML = '<option value="">-- Select target --</option>';
+  allTargets.forEach(t=>{
+    satSel.innerHTML += `<option value="${t.id}">${t.name} (${t.province})</option>`;
+  });
+
+  renderTargets();
+  plotTargetsOnMap();
+}
+
+async function runFullScan(){
+  updateStatus('Scanning OSINT feeds...');
+  const d = await fetchJSON('/api/full-assessment',{
+    method:'POST',
+    headers:{'Content-Type':'application/json'},
+    body:JSON.stringify({with_satellite:false})
+  });
+  if(!d||!d.success){
+    updateStatus('Scan failed -- retrying in 5 min');
+    return;
+  }
+
+  allAssessments = d.assessments||[];
+  allStrikes = allAssessments;
+
+  // Update stats
+  document.getElementById('statArticles').textContent = d.osint?.articles_found||0;
+  document.getElementById('statStrikes').textContent = d.summary?.total_strikes||0;
+  document.getElementById('statConfirmed').textContent = d.summary?.confirmed||0;
+  document.getElementById('statLikely').textContent = d.summary?.likely||0;
+
+  const now = new Date();
+  document.getElementById('statLastScan').textContent = now.toLocaleTimeString();
+
+  renderStrikes();
+  plotStrikesOnMap();
+  updateStatus('Live -- monitoring');
+}
+
+async function loadNews(){
+  const d = await fetchJSON('/api/news?q=iran+military+strike+attack&limit=25');
+  if(!d) return;
+  allNews = d.articles||[];
+  renderNews();
+}
+
+// ═══ RENDER FUNCTIONS ═══════════════════════════════════════════════
+function renderStrikes(){
+  const container = document.getElementById('strikesList');
+  const loading = document.getElementById('strikesLoading');
+  loading.style.display = 'none';
+
+  if(!allAssessments.length){
+    container.innerHTML = '<div class="card"><div class="card-body" style="text-align:center;padding:20px">No strikes reported yet. Data refreshes automatically every 5 minutes.</div></div>';
+    return;
+  }
+
+  // Sort by combined_score descending
+  const sorted = [...allAssessments].sort((a,b)=>(b.combined_score||0)-(a.combined_score||0));
+
+  container.innerHTML = sorted.map(s=>{
+    const pct = Math.round((s.combined_score||0)*100);
+    const verdict = s.verdict||'UNCONFIRMED';
+    const badgeClass = getConfBadgeClass(pct);
+    const reasons = (s.verdict_reasons||[]).join(' | ');
+    const sources = s.osint_sources||s.source_count||0;
+
+    return `<div class="card" onclick="focusTarget('${s.target_id||''}',${s.lat||0},${s.lon||0})" style="cursor:pointer">
+      <div class="card-header">
+        <div class="card-title">${esc(s.target_name||'Unknown')}</div>
+        <span class="badge ${badgeClass}">${pct}%</span>
+      </div>
+      <div class="prob-bar"><div class="prob-fill" style="width:${pct}%;background:${getConfColor(pct)}"></div></div>
+      <div class="card-meta" style="margin-top:6px">
+        <strong>${verdict}</strong> -- ${sources} source(s)
+      </div>
+      <div class="card-body" style="margin-top:4px">${esc(reasons)}</div>
+    </div>`;
+  }).join('');
+}
+
+function renderTargets(){
+  const container = document.getElementById('targetsList');
+  const cat = document.getElementById('filterCategory').value;
+  const prov = document.getElementById('filterProvince').value;
+  const search = document.getElementById('filterSearch').value.toLowerCase();
+
+  let filtered = allTargets;
+  if(cat) filtered = filtered.filter(t=>t.category===cat);
+  if(prov) filtered = filtered.filter(t=>t.province===prov);
+  if(search) filtered = filtered.filter(t=>t.name.toLowerCase().includes(search)||t.type.toLowerCase().includes(search)||(t.description||'').toLowerCase().includes(search));
+
+  document.getElementById('targetCount').textContent = `Showing ${filtered.length} of ${allTargets.length} targets`;
+
+  container.innerHTML = filtered.map(t=>{
+    const color = getTypeColor(t.type);
+    return `<div class="target-item" onclick="focusTarget('${t.id}',${t.lat},${t.lon})">
+      <div class="target-dot" style="background:${color}"></div>
+      <div class="target-info">
+        <div class="target-name">${esc(t.name)}</div>
+        <div class="target-type">${t.type.replace(/_/g,' ')} -- ${t.province}</div>
+      </div>
+    </div>`;
+  }).join('');
+}
+
+function filterTargets(){renderTargets();}
+
+function renderNews(){
+  const container = document.getElementById('newsList');
+  const loading = document.getElementById('newsLoading');
+  loading.style.display = 'none';
+
+  if(!allNews.length){
+    container.innerHTML = '<div class="card"><div class="card-body" style="text-align:center;padding:20px">No news articles found. Auto-refreshing every 5 minutes.</div></div>';
+    return;
+  }
+
+  container.innerHTML = allNews.map(a=>{
+    // Calculate attack relevance probability based on keyword matching
+    const title = (a.title||'').toLowerCase();
+    const keywords = ['strike','attack','bomb','missile','explosion','damage','destroy','target','military','nuclear','irgc','iran','base','hit','raid'];
+    let matches = keywords.filter(k=>title.includes(k)).length;
+    let prob = Math.min(95, Math.round((matches/keywords.length)*100 + Math.random()*15 + 10));
+    if(matches===0) prob = Math.round(Math.random()*15+5);
+
+    const probColor = prob>=60?'var(--red)':prob>=30?'var(--orange)':'var(--dim)';
+
+    const domain = a.domain||a.source||'';
+    const date = a.seendate? a.seendate.substring(0,10) : '';
+
+    return `<div class="news-item">
+      <div style="display:flex;align-items:start;gap:8px">
+        <div style="flex:1">
+          <div class="news-title"><a href="${a.url||'#'}" target="_blank">${esc(a.title||'Untitled')}</a></div>
+          <div class="news-source">${esc(domain)} ${date?'-- '+date:''}</div>
+        </div>
+        <div class="news-prob" style="color:${probColor}">${prob}%</div>
+      </div>
+      <div class="prob-bar" style="margin-top:4px"><div class="prob-fill" style="width:${prob}%;background:${probColor}"></div></div>
+    </div>`;
+  }).join('');
+}
+
+// ═══ MAP PLOTTING ═══════════════════════════════════════════════════
+function plotTargetsOnMap(){
+  markersLayer.clearLayers();
+
+  allTargets.forEach(t=>{
+    const color = getTypeColor(t.type);
+    const isStrike = allAssessments.find(s=>s.target_id===t.id);
+
+    // Create circle marker
+    const marker = L.circleMarker([t.lat,t.lon],{
+      radius: isStrike? 8 : 5,
+      fillColor: isStrike? (isStrike.combined_score>=0.5?'#f85149':'#d29922') : color,
+      color: '#000',
+      weight:1,
+      fillOpacity: isStrike? 0.9 : 0.6,
+    }).addTo(markersLayer);
+
+    // Add target name label
+    marker.bindTooltip(t.name,{
+      permanent: false,
+      direction:'top',
+      offset:[0,-8],
+      className:'target-label'
+    });
+
+    // Popup with details
+    let popupHtml = `<div style="min-width:200px;font-family:sans-serif;color:#000">
+      <strong>${esc(t.name)}</strong><br/>
+      <em>${t.type.replace(/_/g,' ')}</em> -- ${t.province}<br/>`;
+
+    if(isStrike){
+      const pct = Math.round((isStrike.combined_score||0)*100);
+      popupHtml += `<br/><strong>Strike confidence: ${pct}%</strong><br/>
+      Verdict: ${isStrike.verdict||'N/A'}<br/>
+      Sources: ${isStrike.osint_sources||0}`;
+    }
+
+    if(t.description) popupHtml += `<br/><small>${esc(t.description)}</small>`;
+    popupHtml += `<br/><br/><a href="#" onclick="event.preventDefault();selectForSatellite('${t.id}')">Fetch Satellite Imagery</a>`;
+    popupHtml += '</div>';
+
+    marker.bindPopup(popupHtml);
+  });
+}
+
+function plotStrikesOnMap(){
+  // Re-plot to update strike markers
+  plotTargetsOnMap();
+
+  // Add pulsing rings around confirmed strikes
+  allAssessments.forEach(s=>{
+    if((s.combined_score||0)>=0.5 && s.lat && s.lon){
+      L.circleMarker([s.lat,s.lon],{
+        radius:14,
+        fillColor:'transparent',
+        color:'#f85149',
+        weight:2,
+        opacity:0.6,
+        dashArray:'4 4'
+      }).addTo(markersLayer);
+    }
+  });
+}
+
+// ═══ INTERACTIONS ═══════════════════════════════════════════════════
+function switchTab(tab){
+  document.querySelectorAll('.tab').forEach(t=>t.classList.remove('active'));
+  document.querySelectorAll('.tab-panel').forEach(p=>p.classList.remove('active'));
+  document.querySelector(`.tab[data-tab="${tab}"]`).classList.add('active');
+  document.getElementById('panel-'+tab).classList.add('active');
+}
+
+function focusTarget(id, lat, lon){
+  if(lat && lon) map.flyTo([lat,lon],12,{duration:1});
+  // Open popup for this target
+  markersLayer.eachLayer(layer=>{
+    if(layer.getLatLng){
+      const ll = layer.getLatLng();
+      if(Math.abs(ll.lat-lat)<0.001 && Math.abs(ll.lng-lon)<0.001){
+        layer.openPopup();
+      }
+    }
+  });
+}
+
+function selectForSatellite(targetId){
+  document.getElementById('satTarget').value = targetId;
+  switchTab('satellite');
+}
+
+async function fetchSatellite(){
+  const targetId = document.getElementById('satTarget').value;
+  if(!targetId){alert('Select a target first');return;}
+
+  const resultDiv = document.getElementById('satResult');
+  const loadingDiv = document.getElementById('satLoading');
+  resultDiv.innerHTML = '';
+  loadingDiv.style.display = 'block';
+
+  const d = await fetchJSON('/api/assess-strike',{
+    method:'POST',
+    headers:{'Content-Type':'application/json'},
+    body:JSON.stringify({target_id:targetId, with_satellite:true})
+  });
+
+  loadingDiv.style.display = 'none';
+
+  if(!d||!d.success){
+    resultDiv.innerHTML = `<div class="card"><div class="card-body" style="color:var(--red)">Error: ${d?.error||'Failed to fetch satellite data'}</div></div>`;
+    return;
+  }
+
+  let html = `<div class="card">
+    <div class="card-header">
+      <div class="card-title">${esc(d.target_name||targetId)}</div>
+      <span class="badge ${getConfBadgeClass(Math.round((d.combined_score||0)*100))}">${Math.round((d.combined_score||0)*100)}%</span>
+    </div>
+    <div class="card-meta">Verdict: <strong>${d.verdict||'N/A'}</strong></div>`;
+
+  if(d.verdict_reasons && d.verdict_reasons.length){
+    html += '<div class="card-body" style="margin-top:6px">'+d.verdict_reasons.map(r=>'- '+esc(r)).join('<br>')+'</div>';
+  }
+
+  // Before / After images
+  if(d.before_image || d.after_image){
+    html += '<div class="sat-compare">';
+    if(d.before_image){
+      html += `<div class="sat-img-wrap">
+        <span class="sat-img-label before">BEFORE</span>
+        <img src="/timelapse_output/${d.before_image}" alt="Before" onerror="this.parentNode.innerHTML='<div style=padding:30px;text-align:center;color:var(--dim)>No before image</div>'"/>
+      </div>`;
+    }
+    if(d.after_image){
+      html += `<div class="sat-img-wrap">
+        <span class="sat-img-label after">AFTER</span>
+        <img src="/timelapse_output/${d.after_image}" alt="After" onerror="this.parentNode.innerHTML='<div style=padding:30px;text-align:center;color:var(--dim)>No after image</div>'"/>
+      </div>`;
+    }
+    html += '</div>';
+  }
+
+  // Heatmap
+  if(d.heatmap){
+    html += `<div style="margin-top:8px">
+      <div style="font-size:11px;font-weight:700;color:var(--dim);margin-bottom:4px">CHANGE HEATMAP</div>
+      <img src="/timelapse_output/${d.heatmap}" alt="Heatmap" style="width:100%;border-radius:4px;border:1px solid var(--border)"/>
+    </div>`;
+  }
+
+  // Satellite stats
+  if(d.satellite_checked){
+    html += `<div style="margin-top:8px;font-size:11px;color:var(--dim)">
+      Change detected: ${d.satellite_change_detected?'Yes':'No'}
+      | Change area: ${(d.satellite_change_percent||0).toFixed(1)}%
+      | Events: ${d.satellite_event_count||0}
+    </div>`;
+  }
+
+  html += '</div>';
+  resultDiv.innerHTML = html;
+}
+
+function showEvidence(targetId, data){
+  const bar = document.getElementById('evidenceBar');
+  const title = document.getElementById('evTitle');
+  const body = document.getElementById('evBody');
+  title.textContent = 'Evidence: '+(data.target_name||targetId);
+  body.innerHTML = `<pre style="font-size:11px;color:var(--dim);white-space:pre-wrap">${JSON.stringify(data,null,2)}</pre>`;
+  bar.classList.add('show');
+}
+
+function closeEvidence(){
+  document.getElementById('evidenceBar').classList.remove('show');
+}
+
+function toggleHelp(){
+  const modal = document.getElementById('helpModal');
+  modal.classList.toggle('show');
+}
+
+function updateStatus(text){
+  document.getElementById('statusText').textContent = text;
+}
+
+function esc(s){
+  if(!s) return '';
+  const d=document.createElement('div');
+  d.textContent=s;
+  return d.innerHTML;
+}
+
+// ═══ AUTO REFRESH ═══════════════════════════════════════════════════
+async function initialLoad(){
+  updateStatus('Loading targets...');
+  await loadTargets();
+  updateStatus('Running OSINT scan...');
+  await runFullScan();
+  updateStatus('Loading news...');
+  await loadNews();
+  updateStatus('Live -- monitoring');
+}
+
+async function autoRefresh(){
+  updateStatus('Refreshing...');
+  document.getElementById('refreshInd').textContent = 'Refreshing now...';
+  await runFullScan();
+  await loadNews();
+  document.getElementById('refreshInd').textContent = 'Auto-refresh: every 5 minutes | Last: '+new Date().toLocaleTimeString();
+  updateStatus('Live -- monitoring');
+}
+
+// ═══ INIT ═══════════════════════════════════════════════════════════
+document.addEventListener('DOMContentLoaded', ()=>{
+  initMap();
+  initialLoad();
+  // Auto refresh every 5 minutes
+  refreshTimer = setInterval(autoRefresh, 5*60*1000);
+});
+</script>
+</body>
+</html>

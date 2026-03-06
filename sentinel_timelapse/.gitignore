@@ -1,0 +1,32 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+venv/
+env/
+.env
+
+# System
+.DS_Store
+Thumbs.db
+
+# Large data files
+*.tif
+*.gif
+archive/
+timelapse_output/*.png
+timelapse_output/*.gif
+timelapse_output/*.tif
+*.db
+
+# Node
+node_modules/
+frontend/node_modules/
+frontend/dist/
+
+# IDE
+.idea/
+.vscode/
+*.swp
