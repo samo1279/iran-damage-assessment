@@ -308,8 +308,83 @@ KNOWN_TARGETS = {
     'presidency_saadabad':    _t('Sa\'adabad Presidential Complex','government','command_control',35.82,51.41,['saadabad','sa\'adabad','presidential palace'],'Tehran'),
     'expediency_council':     _t('Expediency Council Building','government','government',35.70,51.41,['expediency council'],'Tehran'),
     'guardian_council':       _t('Guardian Council Building','government','government',35.69,51.42,['guardian council'],'Tehran'),
-    'irib_broadcasting':      _t('IRIB State Broadcasting HQ','infrastructure','communications',35.72,51.38,['irib','state broadcasting','irib hq'],'Tehran'),
+    'irib_broadcasting':      _t('IRIB State Broadcasting HQ','infrastructure','communications',35.72,51.38,['irib','state broadcasting','irib hq','iran tv','islamic republic broadcasting'],'Tehran'),
+    'irib_jaam_e_jam':        _t('IRIB Jaam-e-Jam Tower Complex','infrastructure','communications',35.7636,51.4108,['jaam e jam','jame jam tower','tv tower tehran'],'Tehran','Main TV broadcast tower'),
+    'irib_radio_tehran':      _t('IRIB Radio Tehran Transmitter','infrastructure','communications',35.6950,51.4400,['radio tehran','irib radio'],'Tehran'),
+    'press_tv_hq':            _t('Press TV Headquarters','infrastructure','communications',35.7180,51.3950,['press tv','presstv'],'Tehran'),
     'mois_intelligence_hq':   _t('MOIS Intelligence Ministry HQ','government','command_control',35.69,51.43,['mois','intelligence ministry'],'Tehran'),
+    'interior_ministry':      _t('Interior Ministry (Keshvar)','government','government',35.6990,51.4210,['interior ministry','vezarat keshvar'],'Tehran'),
+    'foreign_ministry':       _t('Foreign Ministry','government','government',35.7120,51.4050,['foreign ministry','vezarat kharejeh'],'Tehran'),
+    'oil_ministry':           _t('Oil Ministry Building','government','government',35.7050,51.4180,['oil ministry','vezarat naft'],'Tehran'),
+    
+    # ═══════════════════════════════════════════════════════════════
+    # MEDIA / PROPAGANDA INFRASTRUCTURE
+    # ═══════════════════════════════════════════════════════════════
+    'tehran_tv_studios':      _t('Tehran TV Studios Complex','infrastructure','communications',35.7200,51.3850,['tehran tv studios','irib studios'],'Tehran'),
+    'fars_news_agency':       _t('Fars News Agency HQ','infrastructure','communications',35.7000,51.4300,['fars news','farsnews'],'Tehran'),
+    'tasnim_news':            _t('Tasnim News Agency','infrastructure','communications',35.7100,51.4100,['tasnim news','tasnim'],'Tehran'),
+    'mehr_news':              _t('Mehr News Agency','infrastructure','communications',35.7050,51.4200,['mehr news','mehrnews'],'Tehran'),
+    'isna_news':              _t('ISNA Student News Agency','infrastructure','communications',35.7080,51.4150,['isna','student news'],'Tehran'),
+    'khamenei_media':         _t('Khamenei.ir Media Center','infrastructure','communications',35.7010,51.4220,['khamenei.ir','leader website'],'Tehran'),
+    
+    # ═══════════════════════════════════════════════════════════════
+    # CONFIRMED STRIKE LOCATIONS (March 2026)
+    # ═══════════════════════════════════════════════════════════════
+    'tehran_strike_zone_1':   _t('Tehran Northern Strike Zone','strike_zone','confirmed_strike',35.7800,51.4200,['tehran north strike','tehran bombing north'],'Tehran','Confirmed strike zone March 2026'),
+    'tehran_strike_zone_2':   _t('Tehran Central Strike Zone','strike_zone','confirmed_strike',35.6900,51.4100,['tehran center strike','tehran central bombing'],'Tehran','Confirmed strike zone March 2026'),
+    'tehran_strike_zone_3':   _t('Tehran South Strike Zone','strike_zone','confirmed_strike',35.6200,51.4000,['tehran south strike','tehran southern bombing'],'Tehran','Confirmed strike zone March 2026'),
+    'isfahan_strike_zone_1':  _t('Isfahan Strike Zone','strike_zone','confirmed_strike',32.6700,51.6800,['isfahan strike','isfahan bombing'],'Isfahan','Confirmed strike zone'),
+    
+    # ═══════════════════════════════════════════════════════════════
+    # ADDITIONAL CIVILIAN INFRASTRUCTURE
+    # ═══════════════════════════════════════════════════════════════
+    'tehran_bazaar':          _t('Tehran Grand Bazaar','infrastructure','commercial',35.6724,51.4234,['tehran bazaar','grand bazaar'],'Tehran'),
+    'azadi_tower':            _t('Azadi Tower Complex','infrastructure','landmark',35.6997,51.3381,['azadi tower','shahyad','freedom tower'],'Tehran'),
+    'tabiat_bridge':          _t('Tabiat Bridge','infrastructure','landmark',35.7677,51.4037,['tabiat bridge','nature bridge'],'Tehran'),
+    'tehran_university':      _t('University of Tehran','infrastructure','education',35.7033,51.3969,['tehran university','daneshgah tehran'],'Tehran'),
+    'sharif_university':      _t('Sharif University of Technology','infrastructure','education',35.7025,51.3515,['sharif university','sharif tech'],'Tehran'),
+    'imam_khomeini_hospital': _t('Imam Khomeini Hospital Complex','infrastructure','medical',35.6936,51.4139,['imam khomeini hospital','tehran hospital'],'Tehran'),
+    'milad_hospital':         _t('Milad Hospital','infrastructure','medical',35.7440,51.3760,['milad hospital'],'Tehran'),
+    'tehran_metro_hub':       _t('Tehran Metro Central Hub','infrastructure','transport',35.6960,51.4100,['tehran metro','metro tehran'],'Tehran'),
+    'rah_ahan_station':       _t('Tehran Railway Station (Rah Ahan)','infrastructure','transport',35.6770,51.4470,['rah ahan','tehran railway','tehran train station'],'Tehran'),
+    
+    # ═══════════════════════════════════════════════════════════════
+    # INDUSTRIAL / MANUFACTURING
+    # ═══════════════════════════════════════════════════════════════
+    'iran_khodro':            _t('Iran Khodro Auto Factory','industry','manufacturing',35.7580,51.2700,['iran khodro','ikco','irankhodro'],'Tehran','Largest automaker'),
+    'saipa_factory':          _t('SAIPA Auto Factory','industry','manufacturing',35.6400,51.2600,['saipa','saipa auto'],'Tehran'),
+    'hepco_construction':     _t('HEPCO Heavy Equipment','industry','manufacturing',34.0950,49.7200,['hepco','heavy equipment'],'Markazi'),
+    'azarab_industries':      _t('Azarab Industries (heavy machinery)','industry','manufacturing',34.0880,49.7150,['azarab','azarab industries'],'Markazi'),
+    'mapna_group_tehran':     _t('MAPNA Group (power equipment)','industry','manufacturing',35.7350,51.4650,['mapna','mapna group'],'Tehran'),
+    'tehran_cement':          _t('Tehran Cement Factory','industry','manufacturing',35.5800,51.5200,['tehran cement'],'Tehran'),
+    
+    # ═══════════════════════════════════════════════════════════════
+    # OIL & GAS INFRASTRUCTURE
+    # ═══════════════════════════════════════════════════════════════
+    'south_pars_onshore':     _t('South Pars Onshore Facilities','energy','gas_field',27.5200,52.5800,['south pars','pars gas'],'Bushehr'),
+    'asaluyeh_gas_complex':   _t('Asaluyeh Gas Processing Complex','energy','gas_processing',27.4700,52.6200,['asaluyeh','asaluyeh gas'],'Bushehr'),
+    'bandar_abbas_refinery':  _t('Bandar Abbas Oil Refinery','energy','refinery',27.2000,56.2500,['bandar abbas refinery'],'Hormozgan'),
+    'lavan_refinery':         _t('Lavan Island Refinery','energy','refinery',26.8100,53.3600,['lavan refinery','lavan island'],'Hormozgan'),
+    'tabriz_refinery':        _t('Tabriz Oil Refinery','energy','refinery',38.1500,46.1800,['tabriz refinery'],'East Azerbaijan'),
+    'shiraz_refinery':        _t('Shiraz Oil Refinery','energy','refinery',29.6300,52.4800,['shiraz refinery'],'Fars'),
+    'arak_refinery':          _t('Arak Oil Refinery','energy','refinery',34.0500,49.6800,['arak refinery'],'Markazi'),
+    'kermanshah_refinery':    _t('Kermanshah Oil Refinery','energy','refinery',34.3800,47.0200,['kermanshah refinery'],'Kermanshah'),
+    
+    # ═══════════════════════════════════════════════════════════════
+    # PORTS & LOGISTICS
+    # ═══════════════════════════════════════════════════════════════
+    'shahid_rajaei_port':     _t('Shahid Rajaei Port (Bandar Abbas)','port','logistics',27.1200,56.0500,['shahid rajaei port','bandar abbas port'],'Hormozgan'),
+    'chabahar_port':          _t('Chabahar Port','port','logistics',25.2900,60.6400,['chabahar port','chabahar'],'Sistan-Baluchestan'),
+    'khorramshahr_port':      _t('Khorramshahr Port','port','logistics',30.4400,48.1600,['khorramshahr port'],'Khuzestan'),
+    'anzali_port':            _t('Anzali Port (Caspian)','port','logistics',37.4700,49.4600,['anzali port','bandar anzali'],'Gilan'),
+    'nowshahr_port':          _t('Nowshahr Port (Caspian)','port','logistics',36.6500,51.5000,['nowshahr port','noshahr'],'Mazandaran'),
+    
+    # ═══════════════════════════════════════════════════════════════
+    # RELIGIOUS / CULTURAL SITES (for civilian damage tracking)
+    # ═══════════════════════════════════════════════════════════════
+    'imam_reza_shrine':       _t('Imam Reza Shrine Complex','religious','religious_site',36.2879,59.6168,['imam reza shrine','haram mashhad','astan quds'],'Khorasan'),
+    'qom_shrine':             _t('Fatima Masumeh Shrine','religious','religious_site',34.6416,50.8762,['qom shrine','masumeh shrine','fatima masumeh'],'Qom'),
+    'shah_cheragh_shrine':    _t('Shah Cheragh Shrine','religious','religious_site',29.6070,52.5408,['shah cheragh','shiraz shrine'],'Fars'),
 
     # ═══════════════════════════════════════════════════════════════
     # CRITICAL INFRASTRUCTURE  (dams, power, water, telecom)
@@ -339,6 +414,36 @@ OSINT_SEARCH_QUERIES = [
     'iran war damage satellite',
     'iran IRGC base hit',
     'iran air base strike',
+    # NEW: Media / Infrastructure targets
+    'IRIB destroyed',
+    'iran tv hit',
+    'iran broadcasting strike',
+    'tehran tv tower',
+    'press tv destroyed',
+    'iran news agency bombed',
+    'tehran infrastructure damage',
+    'iran power plant strike',
+    'iran oil refinery explosion',
+    'iran gas facility attack',
+    'tehran civilian damage',
+    'iran bridge destroyed',
+    'iran factory bombing',
+    'iran telecommunications down',
+    # NEW: Specific location searches
+    'milad tower damage',
+    'azadi tower strike',
+    'tehran bazaar explosion',
+    'iran port attack',
+    'bandar abbas strike',
+    'chabahar attack',
+    'asaluyeh explosion',
+    'south pars damage',
+    # NEW: General war terms
+    'iran war casualties',
+    'iran bombing campaign',
+    'israel iran war',
+    'iran infrastructure destroyed',
+    'iran civilian casualties',
 ]
 
 # Location name → coordinate mapping for extracting locations from text
