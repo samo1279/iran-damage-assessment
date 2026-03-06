@@ -95,6 +95,8 @@ export interface StrikeAssessmentResponse {
   before_image: string | null
   after_image: string | null
   heatmap: string | null
+  cloud_mask_image?: string | null
+  cloud_coverage_percent?: number
   verdict: string
   verdict_reasons: string[]
   combined_score: number

@@ -1,32 +1,47 @@
 """
-Sentinel-2 Damage Assessment Platform — Web Server
-Serves the UI and orchestrates:
-  1. STAC search → COG crop download → GIF timelapse
-  2. ML-powered change detection: pixel differencing + NDVI + blob vectorization
-  3. Change event persistence + heatmap/diff overlays
+Iran Damage Assessment Platform
+==============================
+Production-ready Flask server with:
+  - OSINT intelligence from GDELT
+  - Dynamic target discovery
+  - Satellite imagery analysis
+  - React frontend
 """
 
-from flask import Flask, render_template, request, jsonify, send_file, send_from_directory
+from flask import Flask, request, jsonify, send_file, send_from_directory, Response
 from pathlib import Path
-import os, glob, traceback
+import os, glob, traceback, json
+import threading
+import time
+from datetime import datetime
 
-from create_timelapse import TimelapseCreator
-from fetch_images import SatelliteFetcher
-from change_detector import ChangeDetector, get_events, find_band_files
-from sar_fetcher import SARFetcher
-from sar_detector import detect_sar_changes
-from planet_fetcher import PlanetFetcher, planet_available
-from multi_source import MultiSourceAggregator
-from osint_engine import OSINTEngine, KNOWN_TARGETS
-from correlation import CorrelationEngine
-from config import AOI_CONFIG, TIMELAPSE_OUTPUT
+try:
+    from src.satellite.create_timelapse import TimelapseCreator
+    from src.satellite.fetch_images import SatelliteFetcher
+    from src.satellite.change_detector import ChangeDetector, get_events, find_band_files
+    from src.satellite.sar_fetcher import SARFetcher
+    from src.satellite.sar_detector import detect_sar_changes
+    from src.satellite.planet_fetcher import PlanetFetcher, planet_available
+    from src.satellite.multi_source import MultiSourceAggregator
+    from src.osint.osint_engine import OSINTEngine, KNOWN_TARGETS
+    from src.osint.correlation import CorrelationEngine
+    from src.osint.target_manager import TargetManager, AutoDiscovery, migrate_hardcoded_targets, get_target_manager
+    from src.core.config import AOI_CONFIG, TIMELAPSE_OUTPUT
+    TARGET_MANAGER_AVAILABLE = True
+    MODULES_AVAILABLE = True
+except ImportError as e:
+    print(f"Warning: Some modules not available: {e}")
+    MODULES_AVAILABLE = False
+    TARGET_MANAGER_AVAILABLE = False
+    AOI_CONFIG = {}
+    TIMELAPSE_OUTPUT = "timelapse_output"
+    KNOWN_TARGETS = {}
 
 # React frontend build path
 REACT_DIST = Path(__file__).parent / 'frontend' / 'dist'
 
 app = Flask(
     __name__,
-    template_folder='templates',
     static_folder=str(REACT_DIST / 'assets'),
     static_url_path='/assets',
 )
@@ -37,10 +52,127 @@ Path(TIMELAPSE_OUTPUT).mkdir(parents=True, exist_ok=True)
 for city_config in AOI_CONFIG.values():
     Path(city_config['folder']).mkdir(parents=True, exist_ok=True)
 
-# Initialize change detector
-change_detector = ChangeDetector()
-osint = OSINTEngine()
-correlation = CorrelationEngine()
+# Initialize components only if modules are available
+if MODULES_AVAILABLE:
+    try:
+        change_detector = ChangeDetector()
+        osint = OSINTEngine()
+        correlation = CorrelationEngine()
+        print("✅ All satellite processing modules loaded successfully")
+    except Exception as e:
+        print(f"⚠️ Error initializing modules: {e}")
+        MODULES_AVAILABLE = False
+        change_detector = osint = correlation = None
+else:
+    change_detector = osint = correlation = None
+    print("⚠️ Running in limited mode - satellite processing disabled")
+
+# Initialize dynamic target manager
+target_mgr = None
+if TARGET_MANAGER_AVAILABLE:
+    try:
+        target_mgr = get_target_manager()
+        # Migrate hardcoded 217 targets to DB (idempotent)
+        migrate_hardcoded_targets(target_mgr)
+        print(f"✅ Dynamic target system initialized ({target_mgr.get_target_count()} targets)")
+    except Exception as e:
+        print(f"⚠️ Target manager init error: {e}")
+        target_mgr = None
+
+def get_all_targets_dynamic():
+    """Get targets from database (dynamic) or fallback to hardcoded."""
+    if target_mgr:
+        return target_mgr.get_all_targets()
+    return KNOWN_TARGETS
+
+# ────────────────────────────────────────────────────────────────────
+# BACKGROUND SCHEDULER - Refreshes OSINT data every 5 hours
+# ────────────────────────────────────────────────────────────────────
+
+# Global cache for background OSINT results
+_background_cache = {
+    'last_refresh': None,
+    'osint_data': None,
+    'correlation_data': None,
+    'is_running': False,
+}
+
+REFRESH_INTERVAL_HOURS = 5  # Refresh every 5 hours
+
+def background_osint_refresh():
+    """Background thread that refreshes OSINT data periodically."""
+    global _background_cache
+    
+    if not MODULES_AVAILABLE:
+        print("[SCHEDULER] Modules not available, scheduler disabled")
+        return
+    
+    while True:
+        try:
+            # Check if already running
+            if _background_cache['is_running']:
+                time.sleep(60)
+                continue
+            
+            _background_cache['is_running'] = True
+            print(f"\n[SCHEDULER] Starting background OSINT refresh at {datetime.now().isoformat()}")
+            
+            # Run OSINT scan
+            osint_result = osint.full_scan()
+            
+            # Use dynamic targets instead of hardcoded 217
+            all_targets = get_all_targets_dynamic()
+            targets = list(all_targets.keys())
+            correlation_result = correlation.correlate_all(targets, osint_result)
+            
+            # Auto-discover NEW targets from news (the magic!)
+            if target_mgr:
+                try:
+                    discovery = AutoDiscovery(target_mgr)
+                    new_targets = discovery.scan_for_new_targets(max_records=50, num_queries=4)
+                    if new_targets:
+                        print(f"[DISCOVERY] 🆕 Found {len(new_targets)} NEW targets from OSINT!")
+                        for t in new_targets:
+                            print(f"  + {t['name']} ({t['type']}) - {t.get('province', 'Unknown')}")
+                        _background_cache['new_targets'] = new_targets
+                except Exception as de:
+                    print(f"[DISCOVERY] Error: {de}")
+            
+            # Update cache
+            _background_cache['osint_data'] = osint_result
+            _background_cache['correlation_data'] = correlation_result
+            _background_cache['last_refresh'] = datetime.now().isoformat()
+            _background_cache['target_count'] = len(targets)
+            _background_cache['is_running'] = False
+            
+            print(f"[SCHEDULER] Background refresh complete. {len(targets)} targets, {len(osint_result.get('articles', []))} articles")
+            print(f"[SCHEDULER] Next refresh in {REFRESH_INTERVAL_HOURS} hours")
+            
+        except Exception as e:
+            print(f"[SCHEDULER] Error in background refresh: {e}")
+            _background_cache['is_running'] = False
+        
+        # Wait for next refresh interval
+        time.sleep(REFRESH_INTERVAL_HOURS * 60 * 60)
+
+
+def start_background_scheduler():
+    """Start the background OSINT refresh thread (only once)."""
+    global _scheduler_started
+    if _scheduler_started:
+        return  # Already running
+    _scheduler_started = True
+    scheduler_thread = threading.Thread(target=background_osint_refresh, daemon=True)
+    scheduler_thread.start()
+    print(f"[SCHEDULER] Background OSINT scheduler started (refresh every {REFRESH_INTERVAL_HOURS} hours)")
+
+
+# Auto-start scheduler when module loads (for gunicorn --preload)
+_scheduler_started = False
+
+# Check if we should start scheduler automatically (gunicorn with --preload)
+if os.environ.get('GUNICORN_PRELOAD') or os.environ.get('START_SCHEDULER'):
+    start_background_scheduler()
 
 
 @app.route('/')
@@ -52,6 +184,53 @@ def index():
     # Fallback to old template
     cities = {code: info['name'] for code, info in AOI_CONFIG.items()}
     return render_template('index.html', cities=cities)
+
+
+# ── Server-Sent Events for LIVE data updates ────────────────────────
+@app.route('/api/stream')
+def stream_updates():
+    """
+    SSE endpoint for real-time updates.
+    Streams OSINT data changes to connected clients.
+    """
+    from flask import Response
+    
+    def generate():
+        last_refresh = None
+        while True:
+            try:
+                # Check if data has updated
+                current_refresh = _background_cache.get('last_refresh')
+                if current_refresh and current_refresh != last_refresh:
+                    last_refresh = current_refresh
+                    # Send update event
+                    data = {
+                        'type': 'osint_update',
+                        'timestamp': current_refresh,
+                        'articles_count': len(_background_cache.get('osint_data', {}).get('articles', [])),
+                        'has_new_data': True
+                    }
+                    yield f"data: {json.dumps(data)}\n\n"
+                else:
+                    # Send heartbeat every 30 seconds
+                    yield f"data: {{\"type\": \"heartbeat\", \"timestamp\": \"{datetime.now().isoformat()}\"}}\n\n"
+                
+                time.sleep(30)  # Check every 30 seconds
+            except GeneratorExit:
+                break
+            except Exception as e:
+                yield f"data: {{\"type\": \"error\", \"message\": \"{str(e)}\"}}\n\n"
+                time.sleep(60)
+    
+    return Response(
+        generate(),
+        mimetype='text/event-stream',
+        headers={
+            'Cache-Control': 'no-cache',
+            'Connection': 'keep-alive',
+            'X-Accel-Buffering': 'no',
+        }
+    )
 
 
 @app.route('/api/generate-timelapse', methods=['POST'])
@@ -683,22 +862,174 @@ def attack_timeline():
         return jsonify({'success': False, 'error': str(e)}), 500
 
 
+@app.route('/api/scheduler-status')
+def scheduler_status():
+    """
+    Check background scheduler status and last refresh time.
+    """
+    return jsonify({
+        'success': True,
+        'scheduler_running': True,
+        'refresh_interval_hours': REFRESH_INTERVAL_HOURS,
+        'last_refresh': _background_cache.get('last_refresh'),
+        'is_refreshing': _background_cache.get('is_running', False),
+        'has_cached_data': _background_cache.get('osint_data') is not None,
+    })
+
+
+@app.route('/api/quick-stats')
+def quick_stats():
+    """
+    FAST endpoint for initial page load.
+    Returns cached targets + basic stats without hitting GDELT.
+    Uses background-cached OSINT data when available.
+    """
+    try:
+        # Use dynamic database for targets
+        if target_mgr:
+            targets = target_mgr.get_targets_list()
+        else:
+            targets = osint.get_known_targets() if MODULES_AVAILABLE else []
+        
+        # Count by category
+        category_counts = {}
+        for t in targets:
+            cat = t.get('category', 'other')
+            category_counts[cat] = category_counts.get(cat, 0) + 1
+        
+        # Get cached data from background refresh
+        osint_articles = 0
+        strike_count = 0
+        confirmed = 0
+        likely = 0
+        last_refresh = None
+        
+        if _background_cache.get('osint_data'):
+            osint_articles = _background_cache['osint_data'].get('articles_found', 0)
+            last_refresh = _background_cache.get('last_refresh')
+        
+        if _background_cache.get('correlation_data'):
+            assessments = _background_cache['correlation_data'].get('assessments', [])
+            strike_count = len(assessments)
+            confirmed = sum(1 for a in assessments if (a.get('combined_score') or 0) >= 0.7)
+            likely = sum(1 for a in assessments if 0.4 <= (a.get('combined_score') or 0) < 0.7)
+        
+        return jsonify({
+            'success': True,
+            'target_count': len(targets),
+            'strike_count': strike_count,
+            'osint_articles': osint_articles,
+            'confirmed': confirmed,
+            'likely': likely,
+            'categories': category_counts,
+            'provinces': list(set(t['province'] for t in targets if t.get('province'))),
+            'last_osint_refresh': last_refresh,
+            'cached': True,
+        })
+    except Exception as e:
+        return jsonify({'success': False, 'error': str(e), 'target_count': 0}), 500
+
+
 @app.route('/api/known-targets')
 def known_targets():
     """
     List all known Iranian military/strategic targets.
+    NOW DYNAMIC: Uses database instead of hardcoded 217!
     Optional filters: ?category=nuclear_facility&province=Isfahan
     """
     try:
         category = request.args.get('category')
         province = request.args.get('province')
-        targets = osint.get_known_targets(category=category, province=province)
+        
+        # Use dynamic database if available
+        if target_mgr:
+            targets = target_mgr.get_targets_list(category=category, province=province)
+            source = 'database'
+        else:
+            targets = osint.get_known_targets(category=category, province=province)
+            source = 'hardcoded'
+        
         return jsonify({
             'success': True,
             'targets': targets,
             'count': len(targets),
-            'categories': list(set(t['category'] for t in targets)),
-            'provinces': list(set(t['province'] for t in targets))
+            'source': source,
+            'categories': list(set(t['category'] for t in targets if t.get('category'))),
+            'provinces': list(set(t['province'] for t in targets if t.get('province'))),
+            'new_targets': _background_cache.get('new_targets', [])[:5]  # Recently discovered
+        })
+    except Exception as e:
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+
+@app.route('/api/targets', methods=['POST'])
+def add_target():
+    """
+    Add a new target manually to the dynamic database.
+    POST body: { "name": "...", "lat": 35.5, "lon": 51.5, "type": "military_base", ... }
+    """
+    if not target_mgr:
+        return jsonify({'success': False, 'error': 'Dynamic target system not available'}), 503
+    
+    try:
+        data = request.json
+        if not data:
+            return jsonify({'success': False, 'error': 'No data provided'}), 400
+        
+        required = ['name', 'lat', 'lon']
+        for field in required:
+            if field not in data:
+                return jsonify({'success': False, 'error': f'Missing required field: {field}'}), 400
+        
+        # Generate ID from name
+        import re
+        target_id = re.sub(r'[^a-z0-9]+', '_', data['name'].lower().strip())
+        
+        success = target_mgr.add_target(
+            target_id=target_id,
+            name=data['name'],
+            lat=float(data['lat']),
+            lon=float(data['lon']),
+            target_type=data.get('type', 'unknown'),
+            category=data.get('category', 'unknown'),
+            province=data.get('province', 'Unknown'),
+            description=data.get('description'),
+            keywords=data.get('keywords'),
+            source='api_manual',
+            priority=data.get('priority', 5)
+        )
+        
+        if success:
+            return jsonify({
+                'success': True,
+                'target_id': target_id,
+                'message': f'Target "{data["name"]}" added successfully',
+                'total_targets': target_mgr.get_target_count()
+            })
+        else:
+            return jsonify({'success': False, 'error': 'Failed to add target'}), 500
+    except Exception as e:
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+
+@app.route('/api/trigger-discovery', methods=['POST'])
+def trigger_discovery():
+    """
+    Manually trigger target auto-discovery from OSINT.
+    This scans GDELT news for new attack locations.
+    """
+    if not target_mgr:
+        return jsonify({'success': False, 'error': 'Dynamic target system not available'}), 503
+    
+    try:
+        discovery = AutoDiscovery(target_mgr)
+        new_targets = discovery.scan_for_new_targets(max_records=50, num_queries=4)
+        
+        return jsonify({
+            'success': True,
+            'discovered': len(new_targets),
+            'new_targets': new_targets,
+            'total_targets': target_mgr.get_target_count()
         })
     except Exception as e:
         return jsonify({'success': False, 'error': str(e)}), 500
@@ -717,7 +1048,12 @@ def assess_strike():
         with_satellite = data.get('with_satellite', False)
 
         if target_id:
-            target = KNOWN_TARGETS.get(target_id)
+            # Try dynamic DB first, fallback to hardcoded
+            target = None
+            if target_mgr:
+                target = target_mgr.get_target(target_id)
+            if not target:
+                target = KNOWN_TARGETS.get(target_id)
             if not target:
                 return jsonify({'success': False, 'error': f'Unknown target: {target_id}'}), 404
             strike = {
@@ -727,7 +1063,7 @@ def assess_strike():
                 'target_type': target['type'],
                 'lat': target['lat'],
                 'lon': target['lon'],
-                'bbox': target['bbox'],
+                'bbox': target.get('bbox', [target['lon']-0.03, target['lat']-0.03, target['lon']+0.03, target['lat']+0.03]),
                 'date': data.get('date', '2026-03-01'),
                 'province': target.get('province', ''),
                 'confidence': 'reported',
@@ -830,5 +1166,10 @@ if __name__ == '__main__':
     print("  Method: COG windowed crop (~17s/image, 512x512)")
     print("  ML    : Pixel diff + NDVI + SAR log-ratio + blob vectorization")
     print("  DB    : SQLite change_events.db")
+    print(f"  SCHED : Background OSINT refresh every {REFRESH_INTERVAL_HOURS} hours")
     print("=" * 60 + "\n")
+    
+    # Start background OSINT scheduler
+    start_background_scheduler()
+    
     app.run(host='0.0.0.0', port=9000)

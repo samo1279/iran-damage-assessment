@@ -1,3 +1,4 @@
+import { useEffect, useRef } from 'react'
 import { useTargets, useStrikeAssessment } from '../../api/hooks'
 import { useAppStore } from '../../store/useAppStore'
 import { Spinner } from '../ui/Spinner'
@@ -9,12 +10,33 @@ export function SatellitePanel() {
   const { data: targetData } = useTargets()
   const satTargetId = useAppStore((s) => s.satTargetId)
   const setSatTargetId = useAppStore((s) => s.setSatTargetId)
+  const activeTab = useAppStore((s) => s.activeTab)
   const mutation = useStrikeAssessment()
+  
+  // Track if auto-fetch already happened for this target
+  const lastAutoFetchId = useRef<string>('')
 
   const targets = targetData?.targets ?? []
+  
+  // Find the selected target name for display
+  const selectedTarget = targets.find(t => t.id === satTargetId)
+
+  // Auto-fetch when satTargetId is set from map click
+  useEffect(() => {
+    if (
+      satTargetId && 
+      activeTab === 'satellite' && 
+      satTargetId !== lastAutoFetchId.current &&
+      !mutation.isPending
+    ) {
+      lastAutoFetchId.current = satTargetId
+      mutation.mutate(satTargetId)
+    }
+  }, [satTargetId, activeTab])
 
   function handleFetch() {
     if (!satTargetId) return
+    lastAutoFetchId.current = satTargetId
     mutation.mutate(satTargetId)
   }
 
@@ -22,14 +44,30 @@ export function SatellitePanel() {
 
   return (
     <>
+      {/* Selected Target Display */}
+      {selectedTarget && (
+        <div className="bg-accent/10 border border-accent rounded-md p-3 mb-2">
+          <div className="flex items-center gap-2">
+            <span className="text-lg">🎯</span>
+            <div className="flex-1">
+              <div className="text-sm font-bold text-accent">{selectedTarget.name}</div>
+              <div className="text-[11px] text-dim">
+                {selectedTarget.type.replace(/_/g, ' ')} • {selectedTarget.province}
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Selector */}
       <div className="bg-card border border-border rounded-md p-3 mb-2">
         <div className="text-[13px] font-bold text-white mb-2">
-          Satellite Imagery Comparison
+          🛰️ Satellite Imagery Comparison
         </div>
         <p className="text-xs text-dim mb-2">
-          Select a target on the map or from the targets list, then click "Fetch
-          Satellite" to load before/after imagery.
+          {satTargetId 
+            ? 'Fetching satellite imagery automatically...' 
+            : 'Tap a target on the map or select below to analyze satellite imagery.'}
         </p>
         <div className="flex gap-2">
           <select
@@ -49,7 +87,7 @@ export function SatellitePanel() {
             disabled={!satTargetId || mutation.isPending}
             className="bg-accent text-black px-3 py-1.5 rounded text-xs font-bold whitespace-nowrap disabled:opacity-50 hover:bg-accent/80 transition"
           >
-            {mutation.isPending ? 'Loading...' : 'Fetch Satellite'}
+            {mutation.isPending ? 'Loading...' : 'Fetch'}
           </button>
         </div>
       </div>
@@ -89,6 +127,25 @@ export function SatellitePanel() {
           <div className="text-[11px] text-dim mt-1.5">
             Verdict: <strong>{d.verdict ?? 'N/A'}</strong>
           </div>
+          
+          {/* Cloud Coverage Warning */}
+          {typeof d.cloud_coverage_percent === 'number' && d.cloud_coverage_percent > 20 && (
+            <div className={`mt-2 p-2 rounded text-[11px] ${
+              d.cloud_coverage_percent > 50 
+                ? 'bg-yellow-500/20 border border-yellow-500/50 text-yellow-300' 
+                : 'bg-blue-500/20 border border-blue-500/50 text-blue-300'
+            }`}>
+              <div className="flex items-center gap-1.5">
+                <span>☁️</span>
+                <span>
+                  <strong>{d.cloud_coverage_percent.toFixed(0)}% cloud coverage</strong>
+                  {d.cloud_coverage_percent > 50 
+                    ? ' — Results may be less reliable due to cloud interference'
+                    : ' — Some areas masked from analysis'}
+                </span>
+              </div>
+            </div>
+          )}
 
           {(d.verdict_reasons?.length ?? 0) > 0 && (
             <div className="text-xs text-dim mt-1.5 space-y-0.5">

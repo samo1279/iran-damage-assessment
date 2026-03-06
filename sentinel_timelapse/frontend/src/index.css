@@ -45,6 +45,42 @@
   padding-bottom: env(safe-area-inset-bottom, 8px);
 }
 
+/* ─── Leaflet Popup Styling (Mobile-Friendly) ───────────────────── */
+.leaflet-popup-content-wrapper {
+  background: #1c2128 !important;
+  color: #e6edf3 !important;
+  border-radius: 10px !important;
+  border: 1px solid #30363d !important;
+  box-shadow: 0 8px 24px rgba(0,0,0,0.5) !important;
+}
+
+.leaflet-popup-content {
+  margin: 12px 14px !important;
+  font-size: 13px !important;
+  line-height: 1.5 !important;
+}
+
+.leaflet-popup-content a {
+  color: #58a6ff !important;
+  text-decoration: none !important;
+  font-weight: 600 !important;
+  display: inline-block;
+  padding: 8px 0;
+  margin-top: 4px;
+}
+
+.leaflet-popup-tip {
+  background: #1c2128 !important;
+  border: 1px solid #30363d !important;
+}
+
+.leaflet-popup-close-button {
+  color: #8b949e !important;
+  font-size: 20px !important;
+  width: 28px !important;
+  height: 28px !important;
+}
+
 /* Ensure mobile touch targets are at least 44px */
 @media (max-width: 768px) {
   .leaflet-control-zoom a {
@@ -52,5 +88,20 @@
     height: 44px !important;
     line-height: 44px !important;
     font-size: 20px !important;
+  }
+  
+  .leaflet-popup-content {
+    font-size: 14px !important;
+    min-width: 200px !important;
+  }
+  
+  .leaflet-popup-content a {
+    display: block !important;
+    background: #238636 !important;
+    color: #fff !important;
+    padding: 10px 16px !important;
+    border-radius: 6px !important;
+    text-align: center !important;
+    margin-top: 10px !important;
   }
 }

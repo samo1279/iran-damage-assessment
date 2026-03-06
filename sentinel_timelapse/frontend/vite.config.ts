@@ -13,5 +13,21 @@ export default defineConfig({
   build: {
     outDir: 'dist',
     emptyOutDir: true,
+    // Optimize for mobile
+    target: 'es2020',
+    minify: 'esbuild', // Use esbuild (built-in) instead of terser
+    rollupOptions: {
+      output: {
+        // Chunk splitting for better caching
+        manualChunks: {
+          'vendor-leaflet': ['leaflet', 'react-leaflet'],
+          'vendor-query': ['@tanstack/react-query'],
+        },
+      },
+    },
+    // Compress output
+    cssMinify: true,
+    reportCompressedSize: false,
+    chunkSizeWarningLimit: 500,
   },
 })

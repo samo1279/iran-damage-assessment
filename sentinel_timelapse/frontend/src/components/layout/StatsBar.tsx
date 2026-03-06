@@ -1,9 +1,11 @@
-import { useTargets, useFullAssessment } from '../../api/hooks'
+import { useQuickStats, useFullAssessment } from '../../api/hooks'
 
-function Stat({ value, label }: { value: string | number; label: string }) {
+function Stat({ value, label, loading }: { value: string | number; label: string; loading?: boolean }) {
   return (
     <div className="flex-1 bg-card py-2.5 px-3 text-center">
-      <div className="text-xl font-bold text-white">{value}</div>
+      <div className={`text-xl font-bold ${loading ? 'text-dim animate-pulse' : 'text-white'}`}>
+        {value}
+      </div>
       <div className="text-[10px] text-dim uppercase tracking-wider mt-0.5">
         {label}
       </div>
@@ -12,27 +14,30 @@ function Stat({ value, label }: { value: string | number; label: string }) {
 }
 
 export function StatsBar() {
-  const { data: targets } = useTargets()
-  const { data: assessment, dataUpdatedAt } = useFullAssessment()
+  // Use quick-stats for instant initial load
+  const { data: quickStats, isLoading: quickLoading, dataUpdatedAt } = useQuickStats()
+  // Full assessment loads in background (cached on backend)
+  const { data: assessment, isFetching } = useFullAssessment()
 
   const lastScan = dataUpdatedAt
     ? new Date(dataUpdatedAt).toLocaleTimeString()
-    : '--'
+    : (quickStats?.last_osint_refresh ? new Date(quickStats.last_osint_refresh).toLocaleTimeString() : '--')
+  
+  // Use quick stats first, then full assessment when available
+  const targetCount = quickStats?.target_count ?? '--'
+  const articleCount = quickStats?.osint_articles ?? assessment?.osint?.articles_found ?? '--'
+  const strikeCount = quickStats?.strike_count ?? assessment?.summary?.total_strikes ?? 0
+  const confirmedCount = quickStats?.confirmed ?? assessment?.summary?.confirmed ?? 0
+  const likelyCount = quickStats?.likely ?? assessment?.summary?.likely ?? 0
 
   return (
     <div className="flex gap-px bg-border shrink-0">
-      <Stat value={targets?.count ?? '--'} label="Targets in DB" />
-      <Stat
-        value={assessment?.osint?.articles_found ?? '--'}
-        label="OSINT Articles"
-      />
-      <Stat
-        value={assessment?.summary?.total_strikes ?? '--'}
-        label="Reported Strikes"
-      />
-      <Stat value={assessment?.summary?.confirmed ?? '--'} label="Confirmed" />
-      <Stat value={assessment?.summary?.likely ?? '--'} label="Likely" />
-      <Stat value={lastScan} label="Last Scan" />
+      <Stat value={targetCount} label="Targets in DB" loading={quickLoading} />
+      <Stat value={articleCount} label="OSINT Articles" loading={isFetching} />
+      <Stat value={strikeCount} label="Reported Strikes" loading={isFetching} />
+      <Stat value={confirmedCount} label="Confirmed" loading={isFetching} />
+      <Stat value={likelyCount} label="Likely" loading={isFetching} />
+      <Stat value={isFetching ? 'Loading...' : lastScan} label="Last Scan" />
     </div>
   )
 }
