@@ -13,26 +13,25 @@ COPY sentinel_timelapse/frontend ./
 RUN npm run build
 
 # Stage 2: Python Backend with Frontend
-FROM python:3.13-bookworm
+FROM python:3.11-slim
 
 WORKDIR /app
 
 # Install system dependencies
 RUN apt-get update && apt-get install -y \
     build-essential \
-    python3-dev \
     gdal-bin \
     libgdal-dev \
-    libspatialindex-dev \
+    libgeos-dev \
+    libproj-dev \
+    gcc \
+    g++ \
     curl \
     && rm -rf /var/lib/apt/lists/*
 
 # Set GDAL environment variables
 ENV GDAL_CONFIG=/usr/bin/gdal-config
 ENV LD_LIBRARY_PATH=/usr/lib/x86_64-linux-gnu:$LD_LIBRARY_PATH
-
-# Upgrade pip
-RUN pip install --upgrade pip setuptools wheel
 
 # Copy Python requirements
 COPY sentinel_timelapse/requirements.txt ./
