@@ -50,14 +50,15 @@ RUN mkdir -p timelapse_output/strikes
 
 # Health check
 HEALTHCHECK --interval=30s --timeout=10s --start-period=40s --retries=3 \
-    CMD curl -f http://localhost:9000/api/quick-stats || exit 1
+    CMD curl -f http://localhost:8000/api/quick-stats || exit 1
 
 # Expose ports
-EXPOSE 9000
+EXPOSE 8000
 
 # Set environment
 ENV FLASK_ENV=production
 ENV PYTHONUNBUFFERED=1
+ENV PORT=8000
 
 # Run the app
 CMD ["python", "app.py"]
