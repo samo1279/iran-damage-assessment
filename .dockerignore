@@ -1,36 +1,44 @@
-node_modules
+# Git
 .git
 .gitignore
-.env
-.env.local
+
+# Python
 __pycache__
 *.pyc
 *.pyo
 *.pyd
 .Python
-build/
-develop-eggs/
-dist/
-downloads/
-eggs/
-.eggs/
-lib/
-lib64/
-parts/
-sdist/
-var/
-wheels/
-*.egg-info/
-.installed.cfg
-*.egg
 .venv
-venv/
-.DS_Store
+venv
+env
+*.egg-info
+.eggs
+
+# Node
+node_modules
+npm-debug.log
+
+# IDE
 .vscode
 .idea
-*.log
-npm-debug.log
+*.swp
+*.swo
+
+# Build artifacts
+dist
+build
+*.tar.gz
+
+# Archives
+archive/
 timelapse_output/
-.pytest_cache/
-.coverage
-htmlcov/
+
+# Docs
+*.md
+!README.md
+docs/
+
+# Misc
+.DS_Store
+*.log
+.env.local

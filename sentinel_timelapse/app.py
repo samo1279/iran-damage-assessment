@@ -199,9 +199,9 @@ def start_background_scheduler():
         return  # Already running
     _scheduler_started = True
     
-    # Run initial discovery immediately (don't wait 5 hours)
+    # Run initial discovery in background after delay (non-blocking)
     def initial_discovery():
-        time.sleep(10)  # Wait 10 seconds for app to fully start
+        time.sleep(30)  # Wait 30 seconds for app to fully start and handle requests
         if target_mgr and MODULES_AVAILABLE:
             try:
                 print("[STARTUP] Running initial OSINT target discovery...")
@@ -216,7 +216,7 @@ def start_background_scheduler():
             except Exception as e:
                 print(f"[STARTUP] Discovery error: {e}")
     
-    # Start initial discovery thread
+    # Start initial discovery thread (runs in background, non-blocking)
     threading.Thread(target=initial_discovery, daemon=True).start()
     
     # Start the regular scheduler
@@ -1385,4 +1385,5 @@ if __name__ == '__main__':
     # Start background OSINT scheduler
     start_background_scheduler()
     
-    app.run(host='0.0.0.0', port=9000)
+    port = int(os.environ.get('PORT', 8000))
+    app.run(host='0.0.0.0', port=port)
