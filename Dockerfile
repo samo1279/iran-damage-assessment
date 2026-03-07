@@ -13,7 +13,7 @@ COPY sentinel_timelapse/frontend ./
 RUN npm run build
 
 # Stage 2: Python Backend with Frontend
-FROM python:3.13
+FROM python:3.13-bookworm
 
 WORKDIR /app
 
@@ -32,7 +32,7 @@ ENV GDAL_CONFIG=/usr/bin/gdal-config
 ENV LD_LIBRARY_PATH=/usr/lib/x86_64-linux-gnu:$LD_LIBRARY_PATH
 
 # Upgrade pip
-RUN python -m pip install --upgrade pip setuptools wheel
+RUN pip install --upgrade pip setuptools wheel
 
 # Copy Python requirements
 COPY sentinel_timelapse/requirements.txt ./

@@ -1,8 +1,9 @@
-FROM python:3.11-slim
+FROM python:3.13-bookworm
 
 # Build cache bust: v2
 # Install system dependencies for geospatial libraries
 RUN apt-get update && apt-get install -y \
+    build-essential \
     gdal-bin \
     libgdal-dev \
     libgeos-dev \
@@ -18,6 +19,9 @@ ENV GDAL_CONFIG=/usr/bin/gdal-config
 ENV CPLUS_INCLUDE_PATH=/usr/include/gdal
 ENV C_INCLUDE_PATH=/usr/include/gdal
 ENV PYTHONPATH=/app
+
+# Upgrade pip
+RUN pip install --upgrade pip setuptools wheel
 
 WORKDIR /app
 
