@@ -22,10 +22,22 @@ Pre-war baseline: any clear image before March 1
 
 import os
 import json
+import time
 from datetime import datetime, timedelta
 from pathlib import Path
+import hashlib
 
 from src.core.config import TIMELAPSE_OUTPUT
+
+# ────────────────────────────────────────────────────────────────────
+# IMAGE CACHE - Store downloaded satellite imagery by location hash
+# ────────────────────────────────────────────────────────────────────
+_imagery_cache = {}  # { "bbox_hash": { "before": path, "after": path, "timestamp": time } }
+
+def _get_cache_key(bbox):
+    """Generate cache key from bounding box."""
+    bbox_str = f"{bbox[0]:.4f},{bbox[1]:.4f},{bbox[2]:.4f},{bbox[3]:.4f}"
+    return hashlib.md5(bbox_str.encode()).hexdigest()[:8]
 
 
 class CorrelationEngine:
@@ -83,27 +95,59 @@ class CorrelationEngine:
             result['combined_score'] = self._osint_score(strike)
             return result
 
-        # Build bbox from target coordinates (approx 3km box)
+        # Build bbox from target coordinates (approx 2.5km box for faster crop)
         bbox = strike.get('bbox')
         if not bbox:
             lat, lon = strike['lat'], strike['lon']
-            delta = 0.015  # ~1.5km
+            delta = 0.012  # ~1.2km
             bbox = [lon - delta, lat - delta, lon + delta, lat + delta]
 
         label = strike.get('target_id', 'strike')[:20]
 
         try:
-            # ── Step 1: Pre-war baseline (before March 1, clear imagery)
-            baseline_end = '2026-02-28'
-            baseline_start = '2025-12-01'  # Look back 3 months for clear image
-
-            from fetch_images import SatelliteFetcher as S2Fetcher
-            custom_folder = str(Path(f'archive/strikes/{label}').absolute())
+            # ── Step 1: Pre-war baseline (before "War Start", clear imagery)
+            # Check cache first to avoid re-downloading the same location
+            cache_key = _get_cache_key(bbox)
+            
+            if cache_key in _imagery_cache:
+                cached = _imagery_cache[cache_key]
+                # Cache valid if less than 2 hours old
+                if (time.time() - cached.get('timestamp', 0)) < 7200:
+                    print(f"  [CACHE HIT] Using cached imagery for {label}")
+                    before_path = cached.get('before')
+                    after_path = cached.get('after')
+                    
+                    if before_path and after_path:
+                        # Skip to change detection with cached imagery
+                        cd_result = change_detector.detect(
+                            label, before_path, after_path, bbox=bbox
+                        )
+                        
+                        if cd_result.get('success'):
+                            result['satellite_checked'] = True
+                            result['satellite_change_percent'] = cd_result.get('stats', {}).get('change_percent', 0)
+                            result['satellite_event_count'] = cd_result.get('event_count', 0)
+                            result['satellite_change_detected'] = result['satellite_change_percent'] > 2.0
+                            result['before_image'] = cd_result.get('before_image')
+                            result['after_image'] = cd_result.get('after_image')
+                            result['heatmap'] = cd_result.get('heatmap')
+                        
+                        result['verdict'], result['combined_score'], reasons = self._combined_verdict(strike, result)
+                        result['verdict_reasons'] = reasons + ['[CACHED]']
+                        return result
+            
+            # Not in cache, fetch from STAC
+            from src.satellite.fetch_images import SatelliteFetcher as S2Fetcher
+            custom_folder = str(Path(f'timelapse_output/strikes/{label}').absolute())
             Path(custom_folder).mkdir(parents=True, exist_ok=True)
 
             s2 = S2Fetcher()
+            # QUICK MODE: Only fetch visual bands (RGB, no NIR/thermal)
+            # This is the PRIMARY bottleneck - downloading takes 30-60 seconds per image
+            # Limiting to 1 image per time period cuts time in half
+            print(f"  [FETCH] Downloading baseline imagery for {label}...")
             before_items = s2.search_and_download_bbox(
-                bbox, custom_folder, baseline_start, baseline_end, max_images=1
+                bbox, custom_folder, '2025-06-01', '2026-02-25', max_images=1, bands_only=['visual']
             )
 
             if not before_items:
@@ -112,38 +156,58 @@ class CorrelationEngine:
                 result['combined_score'] = self._osint_score(strike)
                 return result
 
-            # ── Step 2: Post-war image (after strike date, whatever's available)
+            # ── Step 2: Post-war image (after strike date)
+            print(f"  [FETCH] Downloading post-war imagery for {label}...")
             strike_date = strike.get('date', self.WAR_START)
-            if strike_date == 'unknown':
-                strike_date = self.WAR_START
+            if strike_date == 'unknown' or strike_date >= '2026-03-01':
+                strike_date = '2026-03-01'
 
-            # Look for post-war image up to today
             post_start = strike_date
-            post_end = datetime.utcnow().strftime('%Y-%m-%d')
+            post_end = (datetime.utcnow() + timedelta(days=1)).strftime('%Y-%m-%d')
 
             after_items = s2.search_and_download_bbox(
-                bbox, custom_folder, post_start, post_end, max_images=1
+                bbox, custom_folder, post_start, post_end, max_images=1, bands_only=['visual']
             )
 
             if not after_items:
-                result['verdict_reasons'].append(
-                    f'No post-war satellite image available after {strike_date}. '
-                    'This is expected — post-war coverage is limited.'
+                # Fallback: try wider window
+                after_items = s2.search_and_download_bbox(
+                    bbox, custom_folder, '2026-02-27', post_end, max_images=1, bands_only=['visual']
                 )
+
+            if not after_items:
+                result['verdict_reasons'].append(f'No post-war satellite coverage available yet')
                 result['verdict'] = self._osint_only_verdict(strike)
-                result['verdict_reasons'].append(
-                    f'OSINT verdict based on {strike.get("source_count", 0)} news sources'
-                )
                 result['combined_score'] = self._osint_score(strike)
                 return result
 
-            # ── Step 3: Run change detection
+            # Cache the downloaded imagery paths
             before_path = before_items[0]
             after_path = after_items[-1] if len(after_items) > 1 else after_items[0]
-
+            _imagery_cache[cache_key] = {
+                'before': before_path,
+                'after': after_path,
+                'timestamp': time.time()
+            }
+            
+            # ── Step 3: Run change detection
+            print(f"  [ANALYZE] Running change detection for {label}...")
             cd_result = change_detector.detect(
                 label, before_path, after_path, bbox=bbox
             )
+
+            # AFTER completing the quick visual detection, start background download of infrared for deeper analysis
+            # We don't wait for this to finish to return the initial verdict
+            def background_infra_fetch():
+                try:
+                    s2.search_and_download_bbox(bbox, custom_folder, baseline_start, baseline_end, max_images=1, bands_only=['red', 'nir'])
+                    s2.search_and_download_bbox(bbox, custom_folder, post_start, post_end, max_images=1, bands_only=['red', 'nir'])
+                    print(f"  [BKG] Infrared bands downloaded for {label}")
+                except Exception as e:
+                    print(f"  [BKG ERROR] {e}")
+
+            import threading
+            threading.Thread(target=background_infra_fetch, daemon=True).start()
 
             if cd_result.get('success'):
                 result['satellite_checked'] = True
@@ -159,7 +223,7 @@ class CorrelationEngine:
 
                 # Save before/after PNGs
                 try:
-                    from create_timelapse import TimelapseCreator
+                    from src.satellite.create_timelapse import TimelapseCreator
                     creator = TimelapseCreator()
                     before_img = creator._load_tif_as_pil(before_path)
                     after_img = creator._load_tif_as_pil(after_path)
