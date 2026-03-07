@@ -13,7 +13,7 @@ COPY sentinel_timelapse/frontend ./
 RUN npm run build
 
 # Stage 2: Python Backend with Frontend
-FROM python:3.13-slim
+FROM python:3.13
 
 WORKDIR /app
 
@@ -31,11 +31,11 @@ RUN apt-get update && apt-get install -y \
 ENV GDAL_CONFIG=/usr/bin/gdal-config
 ENV LD_LIBRARY_PATH=/usr/lib/x86_64-linux-gnu:$LD_LIBRARY_PATH
 
+# Upgrade pip
+RUN python -m pip install --upgrade pip setuptools wheel
+
 # Copy Python requirements
 COPY sentinel_timelapse/requirements.txt ./
-
-# Install setuptools first (required for rasterio)
-RUN pip install --no-cache-dir setuptools wheel
 
 # Install Python dependencies
 RUN pip install --no-cache-dir -r requirements.txt
