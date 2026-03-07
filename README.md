@@ -69,8 +69,8 @@
 
 ```bash
 # Clone the repository
-git clone https://github.com/samo1279/map_api.git
-cd map_api
+git clone https://github.com/samo1279/iran-damage-assessment.git
+cd iran-damage-assessment
 
 # Build and run with Docker
 docker build -t iran-damage-assessment .
