@@ -1,0 +1,44 @@
+✅ All satellite processing modules loaded successfully
+[Migration] Already have 574 targets, skipping mass import
+✅ Dynamic target system initialized (574 targets)
+
+[SCHEDULER] Starting background OSINT refresh at 2026-03-07T16:56:22.993064
+[OSINT] Starting full intelligence scan...
+  [1/8] Searching: israel strike iran
+[SCHEDULER] Background OSINT scheduler started (refresh every 5 hours)
+
+============================================================
+  IRAN DAMAGE ASSESSMENT PLATFORM — v5.0
+  Data : Multi-source satellite + OSINT intelligence
+    [FREE ] Sentinel-2 L2A (10m optical) via Element84 STAC
+    [FREE ] Sentinel-1 SAR (10m radar) via Element84 STAC
+    [FREE ] GDELT OSINT news intelligence (no key needed)
+    [FREE ] 217 known strategic targets in database
+    [SETUP] PlanetScope (~3m) — set PL_API_KEY to enable
+    [SETUP] Copernicus CDSE — set CDSE_CLIENT_ID to enable
+  Method: COG windowed crop (~17s/image, 512x512)
+  ML    : Pixel diff + NDVI + SAR log-ratio + blob vectorization
+  DB    : SQLite change_events.db
+  SCHED : Background OSINT refresh every 5 hours
+============================================================
+
+ * Serving Flask app 'app'
+ * Debug mode: off
+[31m[1mWARNING: This is a development server. Do not use it in a production deployment. Use a production WSGI server instead.[0m
+ * Running on all addresses (0.0.0.0)
+ * Running on http://127.0.0.1:9000
+ * Running on http://192.168.8.14:9000
+[33mPress CTRL+C to quit[0m
+127.0.0.1 - - [07/Mar/2026 16:56:36] "[31m[1mGET /api/targets HTTP/1.1[0m" 405 -
+127.0.0.1 - - [07/Mar/2026 16:57:47] "GET /api/known-targets HTTP/1.1" 200 -
+127.0.0.1 - - [07/Mar/2026 16:58:41] "GET /api/quick-stats HTTP/1.1" 200 -
+127.0.0.1 - - [07/Mar/2026 16:58:41] "GET /api/known-targets HTTP/1.1" 200 -
+127.0.0.1 - - [07/Mar/2026 17:00:23] "GET /api/full-assessment HTTP/1.1" 200 -
+127.0.0.1 - - [07/Mar/2026 17:05:02] "POST /api/assess-strike HTTP/1.1" 200 -
+Traceback (most recent call last):
+  File "/Users/sepehrmortazavi/Desktop/map_api/sentinel_timelapse/app.py", line 705, in data_availability
+    report = agg.check_all_sources(bbox, start_date, end_date, cloud_cover)
+  File "/Users/sepehrmortazavi/Desktop/map_api/sentinel_timelapse/src/satellite/multi_source.py", line 116, in check_all_sources
+    from planet_fetcher import planet_available, PlanetFetcher
+ModuleNotFoundError: No module named 'planet_fetcher'
+127.0.0.1 - - [07/Mar/2026 17:05:08] "[35m[1mPOST /api/data-availability HTTP/1.1[0m" 500 -

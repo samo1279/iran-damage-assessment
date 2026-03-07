@@ -417,6 +417,7 @@ class AutoDiscovery:
     """
     Automatically discovers new attack targets from OSINT sources.
     - Scans GDELT for Iran attack news
+    - Scans social media (Twitter, Reddit, Telegram)
     - Extracts location mentions
     - Geocodes new locations
     - Adds them to targets database
@@ -440,12 +441,128 @@ class AutoDiscovery:
         self.extractor = LocationExtractor()
         self.session = requests.Session()
         self.session.headers.update({'User-Agent': 'IranDamageAssessment/5.0 AutoDiscovery'})
+        self._social_osint = None
+    
+    @property
+    def social_osint(self):
+        """Lazy load social media OSINT scanner."""
+        if self._social_osint is None:
+            try:
+                from .social_osint import SocialOSINT
+                self._social_osint = SocialOSINT()
+            except ImportError:
+                self._social_osint = None
+        return self._social_osint
     
     def scan_for_new_targets(self, max_records=50, num_queries=4):
         """
-        Scan GDELT for articles and discover new target locations.
+        Scan GDELT AND social media for articles and discover new target locations.
         Returns list of newly added targets.
         """
+        import time
+        new_targets = []
+        
+        # 1. Scan Social Media FIRST (faster, more real-time)
+        social_targets = self._scan_social_media()
+        new_targets.extend(social_targets)
+        
+        # 2. Scan GDELT news (slower but more comprehensive)
+        gdelt_targets = self._scan_gdelt(max_records, num_queries)
+        new_targets.extend(gdelt_targets)
+        
+        print(f'[AutoDiscovery] Total new targets discovered: {len(new_targets)}')
+        return new_targets
+    
+    def _scan_social_media(self):
+        """Scan social media for new targets."""
+        new_targets = []
+        
+        if not self.social_osint:
+            print('[AutoDiscovery] Social OSINT module not available')
+            return new_targets
+        
+        try:
+            print('[AutoDiscovery] Scanning social media (Twitter, Reddit, RSS)...')
+            incidents = self.social_osint.scan_all_sources(hours_back=24)
+            print(f'[AutoDiscovery] Found {len(incidents)} social media incidents')
+            
+            for incident in incidents:
+                lat = incident.get('lat')
+                lon = incident.get('lon')
+                location = incident.get('location', 'Unknown')
+                
+                if not lat or not lon:
+                    continue
+                
+                # Generate target ID from location
+                target_id = self._generate_target_id(f"incident_{location}")
+                
+                # Check if similar target exists nearby
+                if self._has_nearby_target(lat, lon, radius_km=5):
+                    continue
+                
+                if not self.tm.target_exists(target_id):
+                    incident_type = incident.get('type', 'unknown')
+                    
+                    self.tm.add_target(
+                        target_id=target_id,
+                        name=f"{location} Incident",
+                        lat=lat,
+                        lon=lon,
+                        target_type=incident_type,
+                        category=incident_type,
+                        province=incident.get('province', 'Unknown'),
+                        description=f"Social media incident: {incident.get('text', '')[:150]}",
+                        keywords=[location.lower(), incident_type],
+                        source=f"social_{incident.get('source', 'unknown')}",
+                        priority=8  # Higher priority for live incidents
+                    )
+                    
+                    self.tm.log_discovery(
+                        source_type=f"social_{incident.get('source', '')}",
+                        source_url=incident.get('url', ''),
+                        location_name=location,
+                        lat=lat,
+                        lon=lon,
+                        target_id=target_id,
+                        action='social_discovered'
+                    )
+                    
+                    new_targets.append({
+                        'id': target_id,
+                        'name': f"{location} Incident",
+                        'lat': lat,
+                        'lon': lon,
+                        'type': incident_type,
+                        'source': incident.get('source'),
+                    })
+                    print(f'[AutoDiscovery] NEW from social: {location} ({incident_type})')
+        
+        except Exception as e:
+            print(f'[AutoDiscovery] Social media scan error: {e}')
+            import traceback
+            traceback.print_exc()
+        
+        return new_targets
+    
+    def _has_nearby_target(self, lat, lon, radius_km=5):
+        """Check if there's already a target within radius_km of this location."""
+        try:
+            existing = self.tm.get_all_targets()
+            for target in existing:
+                tlat = target.get('lat', 0)
+                tlon = target.get('lon', 0)
+                # Simple distance approximation (1 degree ≈ 111km)
+                dlat = abs(lat - tlat) * 111
+                dlon = abs(lon - tlon) * 111 * 0.7  # cos(35°) for Iran
+                if (dlat**2 + dlon**2)**0.5 < radius_km:
+                    return True
+        except:
+            pass
+        return False
+    
+    def _scan_gdelt(self, max_records=50, num_queries=4):
+        """Scan GDELT for new targets."""
         import time
         new_targets = []
         seen_locations = set()
@@ -558,7 +675,14 @@ def migrate_hardcoded_targets(target_manager):
         if existing_count >= 200:  # Most targets already imported
             return 0
         
-        from .osint_engine import KNOWN_TARGETS
+        try:
+            from .osint_engine import KNOWN_TARGETS
+        except ImportError:
+            try:
+                from src.osint.osint_engine import KNOWN_TARGETS
+            except ImportError:
+                print("⚠️ Could not import KNOWN_TARGETS for migration")
+                return 0
         
         count = 0
         for target_id, target in KNOWN_TARGETS.items():
@@ -584,6 +708,53 @@ def migrate_hardcoded_targets(target_manager):
         return count
     except Exception as e:
         print(f'[Migration] Error: {e}')
+        return 0
+
+
+def migrate_all_iran_locations(target_manager):
+    """
+    Import ALL Iranian cities and infrastructure - 400+ locations.
+    This makes the system comprehensive like mahsaalert.com.
+    """
+    try:
+        # Quick check: if we already have 300+ targets, skip
+        existing_count = target_manager.get_target_count()
+        if existing_count >= 400:
+            print(f'[Migration] Already have {existing_count} targets, skipping mass import')
+            return 0
+        
+        from src.data.iran_locations import generate_all_locations
+        
+        locations = generate_all_locations()
+        count = 0
+        
+        for loc in locations:
+            target_id = f"loc_{loc['name'].lower().replace(' ', '_').replace('-', '_')[:40]}"
+            
+            if not target_manager.target_exists(target_id):
+                target_manager.add_target(
+                    target_id=target_id,
+                    name=loc['name'],
+                    lat=loc['lat'],
+                    lon=loc['lon'],
+                    target_type=loc.get('type', 'city'),
+                    category=loc.get('category', 'population_center'),
+                    province=loc.get('province', 'Unknown'),
+                    description=f"{loc['name']} - {loc.get('category', 'location')}",
+                    keywords=[loc['name'].lower()],
+                    source='iran_locations_db',
+                    priority=loc.get('priority', 5),
+                    silent=True
+                )
+                count += 1
+        
+        if count > 0:
+            print(f'[Migration] Imported {count} Iranian locations (cities + infrastructure)')
+        return count
+    except Exception as e:
+        print(f'[Migration] Location import error: {e}')
+        import traceback
+        traceback.print_exc()
         return 0
 
 

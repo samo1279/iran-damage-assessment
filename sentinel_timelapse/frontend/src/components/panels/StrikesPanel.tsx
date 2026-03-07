@@ -46,18 +46,19 @@ export function StrikesPanel() {
             onClick={() => flyTo(s.lat, s.lon)}
             className="bg-card border border-border rounded-md p-3 cursor-pointer hover:border-accent/40 transition"
           >
-            <div className="flex items-center gap-2 mb-1">
-              <span className="text-[13px] font-bold text-white flex-1 truncate">
+            <div className="flex items-center gap-2 mb-2">
+              <span className="text-sm font-black text-white flex-1 truncate uppercase tracking-wide">
                 {s.target_name ?? 'Unknown'}
               </span>
               <Badge value={pct} />
             </div>
             <ProbBar value={pct} color={getConfColor(pct)} />
-            <div className="text-[11px] text-dim mt-1.5">
-              <strong>{verdict}</strong> -- {sources} source(s)
+            <div className="flex items-center justify-between text-xs text-dim mt-2 font-bold">
+              <span className="text-secondary uppercase">{verdict}</span>
+              <span className="text-[10px] bg-white/5 px-2 py-0.5 rounded border border-white/10">{sources} SOURCES</span>
             </div>
             {reasons && (
-              <div className="text-xs text-dim mt-1 leading-relaxed">
+              <div className="text-[11px] text-gray-400 mt-2 leading-tight italic border-l-2 border-accent/30 pl-2">
                 {reasons}
               </div>
             )}

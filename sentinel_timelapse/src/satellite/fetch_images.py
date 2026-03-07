@@ -101,7 +101,7 @@ class SatelliteFetcher:
 
         return downloaded
 
-    def search_and_download_bbox(self, bbox, folder, start_date, end_date, max_images=10):
+    def search_and_download_bbox(self, bbox, folder, start_date, end_date, max_images=10, bands_only=None):
         """
         Download COG crops for a custom bounding box (user-drawn area).
         Same pipeline as search_and_download but accepts raw bbox and folder.
@@ -118,11 +118,30 @@ class SatelliteFetcher:
             try:
                 acquired = item['properties'].get('datetime', '')[:10]
                 item_id = item.get('id', 'unknown')
+                
+                # Check visual first
                 visual_url = self._get_asset_url(item, 'visual')
                 if not visual_url:
                     continue
 
                 out_path = os.path.join(folder, f"S2_{acquired}_{item_id[:20]}.tif")
+                
+                if bands_only:
+                    # Quick Mode: only download specific bands (e.g. visual)
+                    if 'visual' in bands_only:
+                        if os.path.exists(out_path):
+                            downloaded.append(out_path)
+                        else:
+                            print(f"  [DL-QUICK] {acquired} (visual)...")
+                            if self._download_cog_crop(visual_url, bbox, out_path):
+                                downloaded.append(out_path)
+                    
+                    # Download other bands if requested specifically
+                    for b in [b for b in bands_only if b != 'visual']:
+                         self._download_specific_band(item, folder, acquired, item_id, bbox, b)
+                    continue
+
+                # Standard Mode
                 if os.path.exists(out_path):
                     downloaded.append(out_path)
                     self._download_bands(item, folder, acquired, item_id, bbox)
@@ -137,6 +156,25 @@ class SatelliteFetcher:
                 print(f"  [ERROR] {e}")
                 continue
         return downloaded
+
+    def _download_specific_band(self, item, folder, acquired, item_id, bbox, band_name):
+        """Helper to download a single band."""
+        band_url = self._get_asset_url(item, band_name)
+        if not band_url:
+            alt_names = {'red': ['B04', 'b04'], 'nir': ['B08', 'b08', 'nir08']}
+            for alt in alt_names.get(band_name, []):
+                band_url = self._get_asset_url(item, alt)
+                if band_url: break
+        
+        if not band_url: return False
+        
+        band_path = os.path.join(folder, f"S2_{acquired}_{item_id[:20]}_{band_name}.tif")
+        if os.path.exists(band_path): return True
+        
+        try:
+            return self._download_cog_crop(band_url, bbox, band_path, bands=1)
+        except:
+            return False
 
     def _download_bands(self, item, folder, acquired, item_id, bbox):
         """Download Red (B04) and NIR (B08) bands for NDVI computation."""

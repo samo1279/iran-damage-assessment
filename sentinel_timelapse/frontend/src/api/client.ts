@@ -1,5 +1,5 @@
-// Request timeout for mobile networks
-const TIMEOUT_MS = 30000
+// Request timeout (increased for satellite analysis)
+const TIMEOUT_MS = 180000
 
 export async function fetchJSON<T>(url: string, opts?: RequestInit): Promise<T | null> {
   const controller = new AbortController()

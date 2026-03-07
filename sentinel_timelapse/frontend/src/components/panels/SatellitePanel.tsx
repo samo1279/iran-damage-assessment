@@ -32,6 +32,11 @@ export function SatellitePanel() {
       lastAutoFetchId.current = satTargetId
       mutation.mutate(satTargetId)
     }
+    
+    // Switch to satellite tab automatically if a point is selected
+    if (satTargetId && activeTab !== 'satellite' && satTargetId !== lastAutoFetchId.current) {
+       useAppStore.getState().setActiveTab('satellite')
+    }
   }, [satTargetId, activeTab])
 
   function handleFetch() {
@@ -43,51 +48,62 @@ export function SatellitePanel() {
   const d = mutation.data
 
   return (
-    <>
+    <div className="space-y-4">
       {/* Selected Target Display */}
       {selectedTarget && (
-        <div className="bg-accent/10 border border-accent rounded-md p-3 mb-2">
-          <div className="flex items-center gap-2">
-            <span className="text-lg">🎯</span>
+        <div className="bg-accent/10 border-2 border-accent rounded-lg p-4 mb-4 shadow-lg animate-pulse-slow">
+          <div className="flex items-center gap-3">
+            <span className="text-2xl">🎯</span>
             <div className="flex-1">
-              <div className="text-sm font-bold text-accent">{selectedTarget.name}</div>
-              <div className="text-[11px] text-dim">
-                {selectedTarget.type.replace(/_/g, ' ')} • {selectedTarget.province}
+              <div className="text-base font-black text-accent uppercase tracking-wider">{selectedTarget.name}</div>
+              <div className="text-xs text-dim font-bold mt-1">
+                {selectedTarget.type.replace(/_/g, ' ').toUpperCase()} • {selectedTarget.province.toUpperCase()}
               </div>
             </div>
           </div>
         </div>
       )}
 
-      {/* Selector */}
-      <div className="bg-card border border-border rounded-md p-3 mb-2">
-        <div className="text-[13px] font-bold text-white mb-2">
-          🛰️ Satellite Imagery Comparison
+      {/* Selector Container - Fixed Border and Button */}
+      <div className="bg-card border-2 border-white/10 rounded-xl p-5 mb-4 shadow-xl">
+        <div className="text-sm font-black text-white mb-3 uppercase tracking-[0.1em] flex items-center gap-2">
+          <span className="text-accent text-lg">🛰️</span> Satellite Intelligence Analysis
         </div>
-        <p className="text-xs text-dim mb-2">
+        <p className="text-xs text-dim mb-4 leading-relaxed font-medium">
           {satTargetId 
-            ? 'Fetching satellite imagery automatically...' 
-            : 'Tap a target on the map or select below to analyze satellite imagery.'}
+            ? 'System is automatically fetching and correlating multi-spectral imagery...' 
+            : 'Select a strategic target from the map or use the dropdown below to initiate satellite verification.'}
         </p>
-        <div className="flex gap-2">
+        
+        <div className="flex flex-col gap-3">
           <select
             value={satTargetId}
             onChange={(e) => setSatTargetId(e.target.value)}
-            className="flex-1 bg-bg border border-border text-gray-300 px-2 py-1.5 rounded text-xs"
+            className="w-full bg-bg border-2 border-white/10 text-gray-200 px-4 py-3 rounded-lg text-sm font-bold focus:border-accent outline-none transition-all appearance-none cursor-pointer"
+            style={{ backgroundImage: `url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 24 24' stroke='white'%3E%3Cpath stroke-linecap='round' stroke-linejoin='round' stroke-width='2' d='M19 9l-7 7-7-7'%3E%3C/path%3E%3C/svg%3E")`, backgroundRepeat: 'no-repeat', backgroundPosition: 'right 1rem center', backgroundSize: '1.2em' }}
           >
-            <option value="">-- Select target --</option>
+            <option value="" disabled>-- CHOOSE STRATEGIC TARGET --</option>
             {targets.map((t) => (
-              <option key={t.id} value={t.id}>
+              <option key={t.id} value={t.id} className="bg-card py-2">
                 {t.name} ({t.province})
               </option>
             ))}
           </select>
+          
           <button
             onClick={handleFetch}
             disabled={!satTargetId || mutation.isPending}
-            className="bg-accent text-black px-3 py-1.5 rounded text-xs font-bold whitespace-nowrap disabled:opacity-50 hover:bg-accent/80 transition"
+            className={`w-full py-3.5 rounded-lg text-sm font-black uppercase tracking-widest transition-all shadow-lg active:scale-95 ${
+              mutation.isPending 
+                ? 'bg-gray-700 text-gray-400 cursor-not-allowed' 
+                : 'bg-accent text-black hover:bg-white hover:shadow-accent/40'
+            }`}
           >
-            {mutation.isPending ? 'Loading...' : 'Fetch'}
+            {mutation.isPending ? (
+              <div className="flex items-center justify-center gap-2">
+                <Spinner size={16} /> <span>Running Analysis...</span>
+              </div>
+            ) : 'Manual Refresh Analysis'}
           </button>
         </div>
       </div>
@@ -209,6 +225,6 @@ export function SatellitePanel() {
           )}
         </div>
       )}
-    </>
+    </div>
   )
 }

@@ -113,7 +113,7 @@ class MultiSourceAggregator:
         }
 
         # 3. PlanetScope (commercial, needs API key)
-        from planet_fetcher import planet_available, PlanetFetcher
+        from src.satellite.planet_fetcher import planet_available, PlanetFetcher
         ps_configured = planet_available()
         ps_scenes = []
         if ps_configured:

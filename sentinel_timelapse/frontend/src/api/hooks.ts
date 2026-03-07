@@ -11,51 +11,16 @@ import type {
 // Detect mobile for adaptive fetching
 const isMobile = () => typeof window !== 'undefined' && window.innerWidth < 768
 
-/** SSE hook for live updates */
+/** SSE hook for live updates - DISABLED to reduce server load */
 export function useLiveUpdates() {
-  const queryClient = useQueryClient()
-  
-  useEffect(() => {
-    let eventSource: EventSource | null = null
-    
-    const connect = () => {
-      eventSource = new EventSource('/api/stream')
-      
-      eventSource.onmessage = (event) => {
-        try {
-          const data = JSON.parse(event.data)
-          if (data.type === 'osint_update' && data.has_new_data) {
-            // Invalidate queries to refetch fresh data
-            queryClient.invalidateQueries({ queryKey: ['full-assessment'] })
-            queryClient.invalidateQueries({ queryKey: ['news'] })
-            queryClient.invalidateQueries({ queryKey: ['quick-stats'] })
-            console.log('📡 Live update received:', data.timestamp)
-          }
-        } catch (e) {
-          // Heartbeat or parse error - ignore
-        }
-      }
-      
-      eventSource.onerror = () => {
-        eventSource?.close()
-        // Reconnect after 30 seconds
-        setTimeout(connect, 30000)
-      }
-    }
-    
-    // Only connect SSE on desktop (save mobile battery)
-    if (!isMobile()) {
-      connect()
-    }
-    
-    return () => {
-      eventSource?.close()
-    }
-  }, [queryClient])
+  // SSE disabled - causes too many connections on Railway free tier
+  // Data refreshes every 5-10 minutes instead
+  return
 }
 
 /** Quick stats — FAST endpoint for initial page load (<100ms) */
 export function useQuickStats() {
+  const mobile = isMobile()
   return useQuery({
     queryKey: ['quick-stats'],
     queryFn: () => fetchJSON<{
@@ -69,39 +34,42 @@ export function useQuickStats() {
       provinces: string[]
       last_osint_refresh: string | null
     }>('/api/quick-stats'),
-    staleTime: 1 * 60 * 1000, // 1 minute - faster refresh
-    gcTime: 10 * 60 * 1000,
-    refetchInterval: isMobile() ? 3 * 60 * 1000 : 60 * 1000, // 1 min desktop, 3 min mobile
+    staleTime: mobile ? 5 * 60 * 1000 : 2 * 60 * 1000, // 5 min mobile, 2 min desktop
+    gcTime: 30 * 60 * 1000,
+    refetchInterval: mobile ? 10 * 60 * 1000 : 3 * 60 * 1000, // 10 min mobile, 3 min desktop
+    refetchOnMount: false, // Don't refetch if cached
+    retry: 2, // Retry twice on failure
   })
 }
 
 /** Known targets — rarely changes, very long stale time */
 export function useTargets() {
+  const mobile = isMobile()
   return useQuery({
     queryKey: ['targets'],
     queryFn: () => fetchJSON<TargetsResponse>('/api/known-targets'),
-    staleTime: 10 * 60 * 1000, // 10 min - refresh more often
+    staleTime: mobile ? 30 * 60 * 1000 : 15 * 60 * 1000, // 30 min mobile, 15 min desktop
     gcTime: 60 * 60 * 1000,
     refetchOnMount: false,
-    refetchInterval: 5 * 60 * 1000, // Check for new targets every 5 min
+    refetchOnWindowFocus: false, // Don't refetch targets on focus
+    refetchInterval: mobile ? false : 15 * 60 * 1000, // No auto-refresh on mobile
+    retry: 2,
   })
 }
 
-/** Full OSINT + correlation assessment — LIVE refresh */
+/** Full OSINT + correlation assessment — Cached on server */
 export function useFullAssessment() {
   const mobile = isMobile()
   return useQuery({
     queryKey: ['full-assessment'],
-    queryFn: () =>
-      postJSON<FullAssessmentResponse>('/api/full-assessment', {
-        with_satellite: false,
-      }),
-    // Faster refresh for live data
-    refetchInterval: mobile ? 3 * 60 * 1000 : 60 * 1000, // 1 min desktop, 3 min mobile
-    staleTime: mobile ? 2 * 60 * 1000 : 30 * 1000, // 30s desktop, 2 min mobile
+    queryFn: () => fetchJSON<FullAssessmentResponse>('/api/full-assessment'),
+    // Much slower refresh to reduce server load
+    refetchInterval: mobile ? false : 5 * 60 * 1000, // 5 min desktop, disabled on mobile
+    staleTime: mobile ? 10 * 60 * 1000 : 3 * 60 * 1000, // 10 min mobile, 3 min desktop
     gcTime: 30 * 60 * 1000,
-    refetchOnMount: true, // Always get fresh data on mount
-    refetchOnWindowFocus: true, // Refresh when user returns to tab
+    refetchOnMount: false, // Use cache if available
+    refetchOnWindowFocus: false, // Don't refetch on every tab switch
+    retry: 2,
   })
 }
 
@@ -112,21 +80,68 @@ export function useNews() {
     queryKey: ['news'],
     queryFn: () =>
       fetchJSON<NewsResponse>('/api/news?q=iran+military+strike+attack&limit=25'),
-    refetchInterval: mobile ? 3 * 60 * 1000 : 60 * 1000, // 1 min desktop, 3 min mobile
-    staleTime: mobile ? 2 * 60 * 1000 : 30 * 1000,
+    refetchInterval: mobile ? false : 5 * 60 * 1000, // 5 min desktop, disabled on mobile
+    staleTime: mobile ? 10 * 60 * 1000 : 3 * 60 * 1000,
     gcTime: 30 * 60 * 1000,
-    refetchOnMount: true,
-    refetchOnWindowFocus: true,
+    refetchOnMount: false,
+    refetchOnWindowFocus: false,
+    retry: 2,
   })
 }
 
-/** On-demand satellite assessment for a single target */
+/** On-demand satellite assessment for a single target with Polling support */
 export function useStrikeAssessment() {
+  const queryClient = useQueryClient()
+  
   return useMutation({
-    mutationFn: (targetId: string) =>
-      postJSON<StrikeAssessmentResponse>('/api/assess-strike', {
-        target_id: targetId,
-        with_satellite: true,
-      }),
+    mutationFn: async (targetId: string) => {
+      // 1. Start the task
+      const startRes = await postJSON<{ status: string, task_id?: string } & StrikeAssessmentResponse>(
+        '/api/assess-strike', 
+        { target_id: targetId, with_satellite: true }
+      )
+      
+      if (!startRes) throw new Error('Failed to connect to server')
+      
+      // If already done (served from cache), return immediately
+      if (startRes.status === 'completed' || startRes.success) {
+        return startRes as StrikeAssessmentResponse
+      }
+      
+      const taskId = startRes.task_id
+      if (!taskId) throw new Error('No task ID returned')
+      
+      // 2. Poll until complete (longer timeout for satellite processing)
+      let attempts = 0
+      const maxAttempts = 120 // 6 minutes total: 2s * 120
+      
+      while (attempts < maxAttempts) {
+        await new Promise(r => setTimeout(r, 2000)) // Wait 2s (faster polling)
+        const pollRes = await fetchJSON<{ status: string; progress?: number } & StrikeAssessmentResponse>(
+          `/api/task-status/${taskId}`
+        )
+        
+        if (pollRes?.status === 'completed' || pollRes?.success) {
+          return pollRes as StrikeAssessmentResponse
+        }
+        
+        if (pollRes?.status === 'error') {
+          throw new Error(pollRes.error || 'Analysis failed on server')
+        }
+        
+        // Log progress for debugging
+        if (pollRes?.progress) {
+          console.log(`[Analysis] Progress: ${pollRes.progress}%`)
+        }
+        
+        attempts++
+      }
+      
+      throw new Error('Analysis timed out after 6 minutes - satellite imagery may be unavailable')
+    },
+    onSuccess: () => {
+      // Refresh related data if needed
+      queryClient.invalidateQueries({ queryKey: ['quick-stats'] })
+    }
   })
 }

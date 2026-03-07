@@ -1,5 +1,6 @@
 FROM python:3.11-slim
 
+# Build cache bust: v2
 # Install system dependencies for geospatial libraries
 RUN apt-get update && apt-get install -y \
     gdal-bin \
@@ -42,5 +43,5 @@ RUN mkdir -p timelapse_output
 # Expose port
 EXPOSE 8080
 
-# Start the application (preload to run migration once, not per-worker)
-CMD ["gunicorn", "app:app", "--bind", "0.0.0.0:8080", "--workers", "2", "--timeout", "120", "--preload"]
+# Start the application (single worker for Railway free tier)
+CMD ["gunicorn", "app:app", "--bind", "0.0.0.0:8080", "--workers", "1", "--threads", "4", "--timeout", "120", "--preload"]

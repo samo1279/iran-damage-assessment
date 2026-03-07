@@ -1,0 +1,21 @@
+version: '3.8'
+
+services:
+  map-api:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    ports:
+      - "9000:9000"
+    environment:
+      - FLASK_ENV=production
+      - PYTHONUNBUFFERED=1
+    volumes:
+      - ./sentinel_timelapse/timelapse_output:/app/timelapse_output
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:9000/api/quick-stats"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s

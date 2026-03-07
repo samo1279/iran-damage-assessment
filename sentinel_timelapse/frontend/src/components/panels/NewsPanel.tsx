@@ -54,35 +54,44 @@ export function NewsPanel() {
   }
 
   return (
-    <div>
+    <div className="space-y-3">
+      <div className="text-[10px] font-black text-dim mb-2 uppercase tracking-widest flex items-center gap-2">
+        <span className="w-2 h-2 rounded-full bg-blue-500 animate-pulse"></span>
+        Live OSINT Intelligence Feed
+      </div>
       {articles.map((a, i) => {
         const color =
           a.prob >= 60 ? '#f85149' : a.prob >= 30 ? '#d29922' : '#8b949e'
         return (
-          <div key={i} className="py-2.5 px-1 border-b border-border">
-            <div className="flex items-start gap-2">
+          <div key={i} className="bg-card/40 border border-white/5 rounded-xl p-3 hover:border-accent/40 hover:bg-accent/5 transition-all group">
+            <div className="flex items-start gap-3">
               <div className="flex-1 min-w-0">
                 <a
                   href={a.url}
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="text-xs font-semibold text-gray-300 hover:text-accent leading-snug block"
+                  className="text-sm font-black text-gray-200 hover:text-accent leading-tight block uppercase tracking-tight group-hover:text-white transition-colors"
                 >
-                  {a.title ?? 'Untitled'}
+                  {a.title ?? 'UNTITLED INTELLIGENCE REPORT'}
                 </a>
-                <div className="text-[10px] text-dim mt-0.5">
-                  {a.domain ?? ''}{' '}
-                  {a.seendate ? `-- ${a.seendate.substring(0, 10)}` : ''}
+                <div className="flex items-center gap-2 text-[10px] font-bold text-gray-500 mt-2 uppercase tracking-wider">
+                  <span className="text-secondary">{a.domain ?? 'OSINT SOURCE'}</span>
+                  <span className="text-gray-800">|</span>
+                  <span>{a.seendate ? a.seendate.substring(0, 10) : 'RECENT'}</span>
                 </div>
               </div>
-              <span
-                className="text-[11px] font-bold whitespace-nowrap shrink-0"
-                style={{ color }}
-              >
-                {a.prob}%
-              </span>
+              <div className="flex flex-col items-end gap-1">
+                <span
+                  className="text-xs font-black whitespace-nowrap shrink-0"
+                  style={{ color }}
+                >
+                  {a.prob}% RELEVANCE
+                </span>
+              </div>
             </div>
-            <ProbBar value={a.prob} color={color} />
+            <div className="mt-3">
+              <ProbBar value={a.prob} color={color} />
+            </div>
           </div>
         )
       })}

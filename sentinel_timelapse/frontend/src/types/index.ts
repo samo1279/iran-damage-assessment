@@ -40,6 +40,8 @@ export interface Assessment {
   verdict_reasons: string[]
   combined_score: number
   source_count?: number
+  // Source attribution
+  source_urls?: { url: string; title: string; source: string; type: 'news' | 'social' | 'official' }[]
 }
 
 export interface AssessmentSummary {

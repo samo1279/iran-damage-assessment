@@ -1,0 +1,50 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=5.0, user-scalable=yes" />
+    <meta name="theme-color" content="#0d1117" />
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+    <meta name="mobile-web-app-capable" content="yes" />
+    <meta http-equiv="X-UA-Compatible" content="IE=edge" />
+    
+    <!-- DNS Prefetch for faster API calls -->
+    <link rel="dns-prefetch" href="//server.arcgisonline.com" />
+    <link rel="preconnect" href="//server.arcgisonline.com" crossorigin />
+    
+    <!-- Preload critical CSS -->
+    <link rel="preload" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" as="style" />
+    
+    <title>Iran Intel Platform</title>
+    
+    <!-- Inline critical CSS for instant first paint -->
+    <style>
+      body { margin: 0; background: #0d1117; color: #c9d1d9; }
+      #root { min-height: 100vh; }
+      .loading-spinner { 
+        display: flex; align-items: center; justify-content: center; 
+        height: 100vh; flex-direction: column;
+      }
+      .spinner { 
+        width: 48px; height: 48px; border: 4px solid #f85149; 
+        border-top-color: transparent; border-radius: 50%; 
+        animation: spin 1s linear infinite;
+      }
+      @keyframes spin { to { transform: rotate(360deg); } }
+    </style>
+    <script type="module" crossorigin src="/assets/index-D6pn8m0T.js"></script>
+    <link rel="modulepreload" crossorigin href="/assets/vendor-query-D-rp2CWe.js">
+    <link rel="modulepreload" crossorigin href="/assets/vendor-leaflet-DqEcHk86.js">
+    <link rel="stylesheet" crossorigin href="/assets/index-3Sk4XhwM.css">
+  </head>
+  <body class="bg-[#0d1117] text-gray-300">
+    <div id="root">
+      <!-- Pre-rendered loading state for instant feedback -->
+      <div class="loading-spinner">
+        <div class="spinner"></div>
+        <div style="margin-top: 16px; color: #8b949e; font-family: system-ui;">Loading...</div>
+      </div>
+    </div>
+  </body>
+</html>

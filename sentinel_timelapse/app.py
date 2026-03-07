@@ -8,7 +8,7 @@ Production-ready Flask server with:
   - React frontend
 """
 
-from flask import Flask, request, jsonify, send_file, send_from_directory, Response
+from flask import Flask, request, jsonify, send_file, send_from_directory, Response, render_template
 from pathlib import Path
 import os, glob, traceback, json
 import threading
@@ -25,7 +25,7 @@ try:
     from src.satellite.multi_source import MultiSourceAggregator
     from src.osint.osint_engine import OSINTEngine, KNOWN_TARGETS
     from src.osint.correlation import CorrelationEngine
-    from src.osint.target_manager import TargetManager, AutoDiscovery, migrate_hardcoded_targets, get_target_manager
+    from src.osint.target_manager import TargetManager, AutoDiscovery, migrate_hardcoded_targets, migrate_all_iran_locations, get_target_manager
     from src.core.config import AOI_CONFIG, TIMELAPSE_OUTPUT
     TARGET_MANAGER_AVAILABLE = True
     MODULES_AVAILABLE = True
@@ -46,6 +46,38 @@ app = Flask(
     static_url_path='/assets',
 )
 app.config['MAX_CONTENT_LENGTH'] = 100 * 1024 * 1024
+
+# ────────────────────────────────────────────────────────────────────
+# IN-MEMORY CACHE - Prevents database hammering
+# ────────────────────────────────────────────────────────────────────
+_api_cache = {
+    'targets': None,
+    'targets_time': 0,
+    'stats': None,
+    'stats_time': 0,
+    'news': None,
+    'news_time': 0,
+}
+CACHE_TTL = 300  # 5 minutes cache
+
+def get_cached(key, fetch_func, ttl=CACHE_TTL):
+    """Get from cache or fetch and cache."""
+    now = time.time()
+    if _api_cache.get(key) and (now - _api_cache.get(f'{key}_time', 0)) < ttl:
+        return _api_cache[key]
+    data = fetch_func()
+    _api_cache[key] = data
+    _api_cache[f'{key}_time'] = now
+    return data
+
+def invalidate_cache(*keys):
+    """Invalidate specific cache keys (or all if no keys specified)."""
+    if keys:
+        for key in keys:
+            _api_cache.pop(key, None)
+            _api_cache.pop(f'{key}_time', None)
+    else:
+        _api_cache.clear()
 
 # Ensure directories exist
 Path(TIMELAPSE_OUTPUT).mkdir(parents=True, exist_ok=True)
@@ -74,6 +106,8 @@ if TARGET_MANAGER_AVAILABLE:
         target_mgr = get_target_manager()
         # Migrate hardcoded 217 targets to DB (idempotent)
         migrate_hardcoded_targets(target_mgr)
+        # Import ALL Iranian cities + infrastructure (400+ locations)
+        migrate_all_iran_locations(target_mgr)
         print(f"✅ Dynamic target system initialized ({target_mgr.get_target_count()} targets)")
     except Exception as e:
         print(f"⚠️ Target manager init error: {e}")
@@ -135,6 +169,8 @@ def background_osint_refresh():
                         for t in new_targets:
                             print(f"  + {t['name']} ({t['type']}) - {t.get('province', 'Unknown')}")
                         _background_cache['new_targets'] = new_targets
+                        # Invalidate API cache so new targets appear
+                        invalidate_cache('targets', 'quick_stats')
                 except Exception as de:
                     print(f"[DISCOVERY] Error: {de}")
             
@@ -162,6 +198,28 @@ def start_background_scheduler():
     if _scheduler_started:
         return  # Already running
     _scheduler_started = True
+    
+    # Run initial discovery immediately (don't wait 5 hours)
+    def initial_discovery():
+        time.sleep(10)  # Wait 10 seconds for app to fully start
+        if target_mgr and MODULES_AVAILABLE:
+            try:
+                print("[STARTUP] Running initial OSINT target discovery...")
+                discovery = AutoDiscovery(target_mgr)
+                new_targets = discovery.scan_for_new_targets(max_records=30, num_queries=3)
+                if new_targets:
+                    print(f"[STARTUP] 🆕 Discovered {len(new_targets)} NEW targets!")
+                    _background_cache['new_targets'] = new_targets
+                    # Invalidate cache so new targets appear immediately
+                    invalidate_cache('targets', 'quick_stats')
+                print(f"[STARTUP] Total targets now: {target_mgr.get_target_count()}")
+            except Exception as e:
+                print(f"[STARTUP] Discovery error: {e}")
+    
+    # Start initial discovery thread
+    threading.Thread(target=initial_discovery, daemon=True).start()
+    
+    # Start the regular scheduler
     scheduler_thread = threading.Thread(target=background_osint_refresh, daemon=True)
     scheduler_thread.start()
     print(f"[SCHEDULER] Background OSINT scheduler started (refresh every {REFRESH_INTERVAL_HOURS} hours)")
@@ -170,9 +228,8 @@ def start_background_scheduler():
 # Auto-start scheduler when module loads (for gunicorn --preload)
 _scheduler_started = False
 
-# Check if we should start scheduler automatically (gunicorn with --preload)
-if os.environ.get('GUNICORN_PRELOAD') or os.environ.get('START_SCHEDULER'):
-    start_background_scheduler()
+# Always start scheduler when app loads (works with gunicorn)
+start_background_scheduler()
 
 
 @app.route('/')
@@ -789,35 +846,39 @@ def planet_analysis():
 def get_news():
     """
     Proxy to GDELT for conflict/damage related news.
-    Free API, no key needed. Returns recent articles matching the query.
-    Rate limited to 1 request per 5 seconds by GDELT.
+    Cached for 2 minutes to prevent rate limiting.
     """
-    try:
-        import requests as http_req
-        from urllib.parse import quote
-        query = request.args.get('q', 'iran military damage')
-        max_records = min(int(request.args.get('limit', 10)), 25)
-        encoded_query = quote(query)
-        url = (
-            f"https://api.gdeltproject.org/api/v2/doc/doc"
-            f"?query={encoded_query}&mode=ArtList&maxrecords={max_records}"
-            f"&format=json&sort=datedesc"
-        )
-        resp = http_req.get(url, timeout=15, headers={
-            'User-Agent': 'DamageAssessmentPlatform/3.0'
-        })
-        if resp.status_code == 429:
-            return jsonify({'articles': [], 'error': 'GDELT rate limit - wait 5 seconds and try again'})
-        if resp.status_code == 200:
-            try:
-                data = resp.json()
-                return jsonify(data)
-            except Exception:
-                # GDELT sometimes returns non-JSON
-                return jsonify({'articles': [], 'error': 'GDELT returned non-JSON response'})
-        return jsonify({'articles': [], 'error': f'GDELT returned status {resp.status_code}'})
-    except Exception as e:
-        return jsonify({'articles': [], 'error': str(e)})
+    query = request.args.get('q', 'iran military damage')
+    max_records = min(int(request.args.get('limit', 10)), 25)
+    cache_key = f'news_{query}_{max_records}'
+    
+    def fetch_news():
+        try:
+            import requests as http_req
+            from urllib.parse import quote
+            encoded_query = quote(query)
+            url = (
+                f"https://api.gdeltproject.org/api/v2/doc/doc"
+                f"?query={encoded_query}&mode=ArtList&maxrecords={max_records}"
+                f"&format=json&sort=datedesc"
+            )
+            resp = http_req.get(url, timeout=15, headers={
+                'User-Agent': 'DamageAssessmentPlatform/3.0'
+            })
+            if resp.status_code == 429:
+                return {'articles': [], 'error': 'GDELT rate limit'}
+            if resp.status_code == 200:
+                try:
+                    return resp.json()
+                except Exception:
+                    return {'articles': [], 'error': 'GDELT returned non-JSON'}
+            return {'articles': [], 'error': f'GDELT status {resp.status_code}'}
+        except Exception as e:
+            return {'articles': [], 'error': str(e)}
+    
+    # Cache for 2 minutes
+    result = get_cached(cache_key, fetch_news, ttl=120)
+    return jsonify(result)
 
 
 # ── OSINT Intelligence Endpoints ────────────────────────────────────
@@ -880,52 +941,43 @@ def scheduler_status():
 @app.route('/api/quick-stats')
 def quick_stats():
     """
-    FAST endpoint for initial page load.
-    Returns cached targets + basic stats without hitting GDELT.
-    Uses background-cached OSINT data when available.
+    ULTRA-FAST endpoint for initial page load. 
+    Agressively cached (10 mins) with pre-aggregated counts and mobile-friendly keys.
     """
-    try:
-        # Use dynamic database for targets
-        if target_mgr:
-            targets = target_mgr.get_targets_list()
-        else:
-            targets = osint.get_known_targets() if MODULES_AVAILABLE else []
+    def fetch_stats():
+        if not target_mgr: return {'success': False, 'error': 'Database unavailable'}
         
-        # Count by category
+        # Batch query for speed
+        targets = target_mgr.get_targets_list()
+        
+        # Pre-aggregate data in a single pass
         category_counts = {}
+        provinces = set()
         for t in targets:
-            cat = t.get('category', 'other')
+            cat = t.get('category', 'unknown')
             category_counts[cat] = category_counts.get(cat, 0) + 1
+            if t.get('province'): provinces.add(t['province'])
         
-        # Get cached data from background refresh
-        osint_articles = 0
-        strike_count = 0
-        confirmed = 0
-        likely = 0
-        last_refresh = None
+        # Pull live OSINT metrics from background thread cache (with safe defaults)
+        bg = _background_cache or {}
+        osint_data = bg.get('osint_data') or {}
+        corr_data = bg.get('correlation_data') or {}
+        assessments = corr_data.get('assessments', []) if corr_data else []
         
-        if _background_cache.get('osint_data'):
-            osint_articles = _background_cache['osint_data'].get('articles_found', 0)
-            last_refresh = _background_cache.get('last_refresh')
-        
-        if _background_cache.get('correlation_data'):
-            assessments = _background_cache['correlation_data'].get('assessments', [])
-            strike_count = len(assessments)
-            confirmed = sum(1 for a in assessments if (a.get('combined_score') or 0) >= 0.7)
-            likely = sum(1 for a in assessments if 0.4 <= (a.get('combined_score') or 0) < 0.7)
-        
-        return jsonify({
+        return {
             'success': True,
             'target_count': len(targets),
-            'strike_count': strike_count,
-            'osint_articles': osint_articles,
-            'confirmed': confirmed,
-            'likely': likely,
+            'osint_articles': osint_data.get('articles_found', 0) if osint_data else 0,
+            'last_osint_refresh': bg.get('last_refresh'),
             'categories': category_counts,
-            'provinces': list(set(t['province'] for t in targets if t.get('province'))),
-            'last_osint_refresh': last_refresh,
-            'cached': True,
-        })
+            'provinces': sorted(list(provinces)),
+            'strike_count': len(assessments),
+            'confirmed': sum(1 for a in assessments if (a.get('combined_score') or 0) >= 0.7),
+        }
+    
+    try:
+        # Increased TTL to 600s (10 minutes) for heavy mobile traffic
+        return jsonify(get_cached('quick_stats', fetch_stats, ttl=600))
     except Exception as e:
         return jsonify({'success': False, 'error': str(e), 'target_count': 0}), 500
 
@@ -934,29 +986,33 @@ def quick_stats():
 def known_targets():
     """
     List all known Iranian military/strategic targets.
-    NOW DYNAMIC: Uses database instead of hardcoded 217!
-    Optional filters: ?category=nuclear_facility&province=Isfahan
+    CACHED for 5 minutes to prevent database hammering.
     """
     try:
+        # Use global cached targets (no per-request filtering for performance)
+        def fetch_all_targets():
+            if target_mgr:
+                return target_mgr.get_targets_list()
+            return osint.get_known_targets()
+        
+        # Cache for 5 minutes
+        targets = get_cached('targets', fetch_all_targets, 300)
+        
+        # Filter in-memory (fast)
         category = request.args.get('category')
         province = request.args.get('province')
-        
-        # Use dynamic database if available
-        if target_mgr:
-            targets = target_mgr.get_targets_list(category=category, province=province)
-            source = 'database'
-        else:
-            targets = osint.get_known_targets(category=category, province=province)
-            source = 'hardcoded'
+        if category:
+            targets = [t for t in targets if t.get('category') == category]
+        if province:
+            targets = [t for t in targets if t.get('province') == province]
         
         return jsonify({
             'success': True,
             'targets': targets,
             'count': len(targets),
-            'source': source,
+            'cached': True,
             'categories': list(set(t['category'] for t in targets if t.get('category'))),
             'provinces': list(set(t['province'] for t in targets if t.get('province'))),
-            'new_targets': _background_cache.get('new_targets', [])[:5]  # Recently discovered
         })
     except Exception as e:
         return jsonify({'success': False, 'error': str(e)}), 500
@@ -1025,6 +1081,10 @@ def trigger_discovery():
         discovery = AutoDiscovery(target_mgr)
         new_targets = discovery.scan_for_new_targets(max_records=50, num_queries=4)
         
+        # Invalidate cache so new targets appear immediately
+        if new_targets:
+            invalidate_cache('targets', 'quick_stats')
+        
         return jsonify({
             'success': True,
             'discovered': len(new_targets),
@@ -1035,17 +1095,179 @@ def trigger_discovery():
         return jsonify({'success': False, 'error': str(e)}), 500
 
 
+@app.route('/api/report-incident', methods=['POST'])
+def report_incident():
+    """
+    User-submitted incident report (like mahsaalert.com).
+    POST body: {
+        "lat": 35.6892,
+        "lon": 51.3890,
+        "location_name": "Tehran",
+        "description": "Explosion heard...",
+        "incident_type": "explosion" (optional),
+        "source": "user_report" (optional)
+    }
+    """
+    if not target_mgr:
+        return jsonify({'success': False, 'error': 'Target system not available'}), 503
+    
+    try:
+        data = request.json or {}
+        lat = data.get('lat')
+        lon = data.get('lon')
+        location_name = data.get('location_name', 'Unknown Location')
+        description = data.get('description', '')
+        incident_type = data.get('incident_type', 'user_report')
+        
+        # Validate coordinates
+        if not lat or not lon:
+            return jsonify({'success': False, 'error': 'lat and lon required'}), 400
+        
+        lat = float(lat)
+        lon = float(lon)
+        
+        # Check if coordinates are within Iran bounds
+        if not (25 <= lat <= 40 and 44 <= lon <= 64):
+            return jsonify({'success': False, 'error': 'Coordinates must be within Iran'}), 400
+        
+        # Generate unique target ID
+        import time as _time
+        target_id = f"user_report_{int(_time.time())}_{location_name.lower().replace(' ', '_')[:20]}"
+        
+        # Determine province from location
+        province = 'Unknown'
+        try:
+            from src.osint.target_manager import IRAN_LOCATIONS
+            for city, info in IRAN_LOCATIONS.items():
+                if city in location_name.lower():
+                    province = info.get('province', 'Unknown')
+                    break
+        except:
+            pass
+        
+        # Add to database
+        success = target_mgr.add_target(
+            target_id=target_id,
+            name=f"User Report: {location_name}",
+            lat=lat,
+            lon=lon,
+            target_type=incident_type,
+            category='user_report',
+            province=province,
+            description=description[:500] if description else f"User-reported incident at {location_name}",
+            keywords=[location_name.lower(), 'user_report'],
+            source='user_submission',
+            priority=9  # High priority for user reports
+        )
+        
+        if success:
+            # Log the discovery
+            target_mgr.log_discovery(
+                source_type='user_report',
+                source_url='',
+                location_name=location_name,
+                lat=lat,
+                lon=lon,
+                target_id=target_id,
+                action='user_submitted'
+            )
+            
+            # Invalidate cache
+            invalidate_cache('targets', 'quick_stats')
+            
+            return jsonify({
+                'success': True,
+                'target_id': target_id,
+                'message': f'Incident reported at {location_name}',
+                'total_targets': target_mgr.get_target_count()
+            })
+        else:
+            return jsonify({'success': False, 'error': 'Failed to add incident'}), 500
+    
+    except Exception as e:
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+
+# ── Background Task Store ──────────────────────────────────────────
+_task_results = {}
+_task_lock = threading.Lock()
+
+def run_async_assessment(task_id, strike, with_satellite=False):
+    """Run assessment in background thread with progress tracking."""
+    try:
+        with _task_lock:
+            _task_results[task_id] = {'status': 'processing', 'progress': 5}
+        
+        try:
+            if with_satellite:
+                # Update progress: downloading satellite imagery
+                with _task_lock:
+                    _task_results[task_id]['progress'] = 20
+                
+                fetcher_obj = SatelliteFetcher()
+                
+                # Update progress: running analysis
+                with _task_lock:
+                    _task_results[task_id]['progress'] = 50
+                
+                result = correlation.assess_strike(strike, fetcher=fetcher_obj, change_detector=change_detector)
+                
+                # Update progress: finalizing
+                with _task_lock:
+                    _task_results[task_id]['progress'] = 80
+            else:
+                result = correlation.assess_strike(strike)
+                with _task_lock:
+                    _task_results[task_id]['progress'] = 80
+        
+            result['success'] = True
+            result['status'] = 'completed'
+            result['progress'] = 100
+            with _task_lock:
+                _task_results[task_id] = result
+                
+        except Exception as e:
+            # Capture detailed error for debugging
+            error_msg = f"{type(e).__name__}: {str(e)}"
+            print(f"[ASSESSMENT ERROR] {task_id}: {error_msg}")
+            traceback.print_exc()
+            with _task_lock:
+                _task_results[task_id] = {
+                    'status': 'error',
+                    'error': error_msg,
+                    'success': False,
+                    'progress': 0
+                }
+            
+    except Exception as e:
+        traceback.print_exc()
+        with _task_lock:
+            _task_results[task_id] = {
+                'status': 'error',
+                'error': str(e),
+                'success': False
+            }
+
 @app.route('/api/assess-strike', methods=['POST'])
 def assess_strike():
     """
-    Run full OSINT + satellite assessment for a specific target.
-    POST body: { "target_id": "parchin_complex" } or { "lat": ..., "lon": ... }
-    Optionally: "with_satellite": true to also run change detection (slow).
+    Initiate OSINT + satellite assessment for a specific target.
+    Returns a task_id for polling.
     """
     try:
         data = request.json or {}
         target_id = data.get('target_id')
         with_satellite = data.get('with_satellite', False)
+        
+        # Unique task ID for this specific target + satellite combo
+        task_id = f"task_{target_id}_{'sat' if with_satellite else 'osint'}"
+        
+        # If task already completed recently, return it
+        with _task_lock:
+            if task_id in _task_results and _task_results[task_id]['status'] == 'completed':
+                return jsonify(_task_results[task_id])
+            if task_id in _task_results and _task_results[task_id]['status'] == 'processing':
+                return jsonify({'status': 'processing', 'task_id': task_id})
 
         if target_id:
             # Try dynamic DB first, fallback to hardcoded
@@ -1070,81 +1292,72 @@ def assess_strike():
                 'source_count': 1,
             }
         else:
-            lat = data.get('lat')
-            lon = data.get('lon')
-            if not lat or not lon:
-                return jsonify({'success': False, 'error': 'Provide target_id or lat/lon'}), 400
-            strike = {
-                'id': f'custom_{lat}_{lon}',
-                'target_id': 'custom',
-                'target_name': data.get('name', f'Custom ({lat:.4f}, {lon:.4f})'),
-                'target_type': 'custom',
-                'lat': float(lat),
-                'lon': float(lon),
-                'date': data.get('date', '2026-03-01'),
-                'confidence': 'unconfirmed',
-                'source_count': 0,
-            }
+            return jsonify({'success': False, 'error': 'Provide target_id'}), 400
 
-        if with_satellite:
-            fetcher_obj = SatelliteFetcher()
-            result = correlation.assess_strike(strike, fetcher=fetcher_obj, change_detector=change_detector)
-        else:
-            result = correlation.assess_strike(strike)
-
-        result['success'] = True
-        return jsonify(result)
+        # Start async task
+        thread = threading.Thread(target=run_async_assessment, args=(task_id, strike, with_satellite))
+        thread.daemon = True
+        thread.start()
+        
+        return jsonify({'status': 'processing', 'task_id': task_id})
 
     except Exception as e:
         traceback.print_exc()
         return jsonify({'success': False, 'error': str(e)}), 500
 
 
-@app.route('/api/full-assessment', methods=['POST'])
+@app.route('/api/task-status/<task_id>', methods=['GET'])
+def get_task_status(task_id):
+    """Poll for the status of a background assessment task."""
+    with _task_lock:
+        result = _task_results.get(task_id)
+        if not result:
+            return jsonify({'status': 'not_found'}), 404
+        return jsonify(result)
+
+
+@app.route('/api/full-assessment', methods=['GET', 'POST'])
 def full_assessment():
     """
     Run OSINT scan + satellite correlation for all reported strikes.
-    This is the main "big picture" endpoint.
-    POST body: { "with_satellite": false, "max_satellite_checks": 3 }
+    Cached for 5 minutes to prevent timeouts.
     """
-    try:
-        data = request.json or {}
-        with_satellite = data.get('with_satellite', False)
-        max_checks = int(data.get('max_satellite_checks', 3))
+    def fetch_assessment():
+        try:
+            # Step 1: OSINT scan (cached)
+            osint_report = osint.full_scan(since_date='2026-03-01')
+            strikes = osint_report.get('strikes', [])
 
-        # Step 1: OSINT scan
-        osint_report = osint.full_scan(since_date='2026-03-01')
-        strikes = osint_report.get('strikes', [])
-
-        # Step 2: Assess each strike
-        if with_satellite:
-            fetcher_obj = SatelliteFetcher()
-            assessments = correlation.batch_assess(
-                strikes, fetcher=fetcher_obj,
-                change_detector=change_detector,
-                max_sat_checks=max_checks
-            )
-        else:
+            # Step 2: Assess each strike (no satellite by default - too slow)
             assessments = correlation.batch_assess(strikes)
 
-        # Step 3: Generate summary
-        summary = correlation.generate_summary(assessments)
+            # Step 3: Generate summary
+            summary = correlation.generate_summary(assessments)
 
-        return jsonify({
-            'success': True,
-            'osint': {
-                'articles_found': osint_report['articles_found'],
-                'articles_with_locations': osint_report['articles_with_locations'],
-                'targets_mentioned': osint_report['targets_mentioned'],
-            },
-            'assessments': assessments,
-            'summary': summary,
-            'timeline': osint_report.get('timeline', {}),
-        })
-
-    except Exception as e:
-        traceback.print_exc()
-        return jsonify({'success': False, 'error': str(e)}), 500
+            return {
+                'success': True,
+                'osint': {
+                    'articles_found': osint_report.get('articles_found', 0),
+                    'articles_with_locations': osint_report.get('articles_with_locations', 0),
+                    'targets_mentioned': osint_report.get('targets_mentioned', 0),
+                },
+                'assessments': assessments,
+                'summary': summary,
+                'timeline': osint_report.get('timeline', {}),
+            }
+        except Exception as e:
+            print(f"[full-assessment] Error: {e}")
+            return {
+                'success': True,
+                'osint': {'articles_found': 0, 'articles_with_locations': 0, 'targets_mentioned': 0},
+                'assessments': [],
+                'summary': {'total': 0, 'confirmed': 0, 'likely': 0, 'possible': 0},
+                'timeline': {},
+            }
+    
+    # Cache for 5 minutes (300 seconds)
+    result = get_cached('full_assessment', fetch_assessment, ttl=300)
+    return jsonify(result)
 
 
 if __name__ == '__main__':
