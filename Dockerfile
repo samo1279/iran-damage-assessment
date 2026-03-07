@@ -19,6 +19,8 @@ WORKDIR /app
 
 # Install system dependencies
 RUN apt-get update && apt-get install -y \
+    build-essential \
+    python3-dev \
     gdal-bin \
     libgdal-dev \
     libspatialindex-dev \
@@ -31,6 +33,9 @@ ENV LD_LIBRARY_PATH=/usr/lib/x86_64-linux-gnu:$LD_LIBRARY_PATH
 
 # Copy Python requirements
 COPY sentinel_timelapse/requirements.txt ./
+
+# Install setuptools first (required for rasterio)
+RUN pip install --no-cache-dir setuptools wheel
 
 # Install Python dependencies
 RUN pip install --no-cache-dir -r requirements.txt
