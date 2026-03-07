@@ -32,8 +32,8 @@ RUN pip install --no-cache-dir --upgrade pip && \
 # Copy application code
 COPY sentinel_timelapse/ .
 
-# Copy built frontend from stage 1
-COPY --from=frontend-builder /app/frontend/dist ./static/dist
+# Copy built frontend from stage 1 to frontend/dist (where app.py expects it)
+COPY --from=frontend-builder /app/frontend/dist ./frontend/dist
 
 # Set environment variables
 ENV PORT=8000
