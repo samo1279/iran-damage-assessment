@@ -545,8 +545,9 @@ class AutoDiscovery:
         
         return new_targets
     
-    def _has_nearby_target(self, lat, lon, radius_km=5):
-        """Check if there's already a target within radius_km of this location."""
+    def _has_nearby_target(self, lat, lon, radius_km=2):
+        """Check if there's already a target within radius_km of this location.
+        Reduced to 2km to allow more fine-grained target discovery."""
         try:
             existing = self.tm.get_all_targets()
             for target in existing:

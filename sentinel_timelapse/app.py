@@ -131,7 +131,7 @@ _background_cache = {
     'is_running': False,
 }
 
-REFRESH_INTERVAL_HOURS = 5  # Refresh every 5 hours
+REFRESH_INTERVAL_HOURS = 1  # Refresh every 1 hour for real-time monitoring
 
 def background_osint_refresh():
     """Background thread that refreshes OSINT data periodically."""
@@ -157,7 +157,10 @@ def background_osint_refresh():
             # Use dynamic targets instead of hardcoded 217
             all_targets = get_all_targets_dynamic()
             targets = list(all_targets.keys())
-            correlation_result = correlation.correlate_all(targets, osint_result)
+            
+            # Correlation is done per-strike via assess_strike, not batch here
+            # Just store osint_result for later API use
+            correlation_result = {'targets_analyzed': len(targets), 'osint_articles': len(osint_result.get('articles', []))}
             
             # Auto-discover NEW targets from news (the magic!)
             if target_mgr:
