@@ -48,7 +48,7 @@ KNOWN_TARGETS = {
     # TEHRAN PROVINCE  (capital — densest target cluster)
     # ═══════════════════════════════════════════════════════════════
     'parchin_complex':        _t('Parchin Military Complex','military_base','weapons_research',35.52,51.77,['parchin','military complex'],'Tehran','Major weapons R&D/testing complex SE of Tehran'),
-    'tehran_refinery':        _t('Tehran Oil Refinery','energy','refinery',35.44,51.42,['tehran refinery','oil refinery tehran'],'Tehran'),
+    'tehran_refinery':        _t('Tehran Oil Refinery (Rey)','energy','refinery',35.54,51.42,['tehran refinery','oil refinery tehran','rey refinery','shahran oil','oil depot tehran','iran oil depot','tehran oil depot'],'Tehran','Major oil refinery south of Tehran, also known as Rey/Shahran'),
     'mehrabad_airport':       _t('Mehrabad Airport / Air Base','airbase','air_defense',35.6892,51.3134,['mehrabad','tehran airport'],'Tehran'),
     'khojir_missile':         _t('Khojir Missile Development','military_base','missile',35.63,51.67,['khojir','missile complex'],'Tehran'),
     'tehran_ikia':            _t('Imam Khomeini Intl Airport','infrastructure','logistics',35.4161,51.1522,['imam khomeini airport','ikia'],'Tehran'),
@@ -649,6 +649,21 @@ class OSINTEngine:
         print(f"[OSINT] GDELT: all retries exhausted for '{query}'")
         return []
 
+    # Generic facility patterns that map to known targets when no specific location is mentioned
+    GENERIC_FACILITY_MAPPINGS = {
+        r'iran.*oil\s*depot': 'tehran_refinery',
+        r'oil\s*depot.*iran': 'tehran_refinery',
+        r'hits?\s+iran.*oil': 'tehran_refinery',
+        r'iran.*fuel\s*depot': 'tehran_refinery',
+        r'iran.*refiner': 'isfahan_refinery',
+        r'iran.*nuclear.*facility': 'natanz_nuclear',
+        r'iran.*enrichment': 'natanz_nuclear',
+        r'iran.*missile.*site': 'khojir_missile',
+        r'iran.*air\s*defense': 'isfahan_airbase',
+        r'iran.*radar.*site': 'lavasan_radar',
+        r'iran.*power\s*plant': 'tehran_power_plants',
+    }
+
     def _match_article_to_targets(self, article):
         """
         Analyze article title/URL for mentions of known targets.
@@ -659,6 +674,23 @@ class OSINTEngine:
         )
 
         matches = []
+        
+        # First check for generic facility mentions (like "Iran oil depots")
+        for pattern, target_id in self.GENERIC_FACILITY_MAPPINGS.items():
+            if re.search(pattern, text):
+                if target_id in KNOWN_TARGETS:
+                    target = KNOWN_TARGETS[target_id]
+                    matches.append({
+                        'target_id': target_id,
+                        'name': target['name'],
+                        'lat': target['lat'],
+                        'lon': target['lon'],
+                        'type': target['type'],
+                        'keyword': pattern,
+                        'relevance': 0.75  # High relevance for facility type matches
+                    })
+        
+        # Then check specific keyword matches
         for keyword, info in LOCATION_KEYWORDS.items():
             if keyword in text:
                 matches.append({

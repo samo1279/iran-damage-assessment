@@ -352,6 +352,29 @@ class LocationExtractor:
         self.session = requests.Session()
         self.session.headers.update({'User-Agent': 'IranDamageAssessment/5.0'})
     
+    # Generic facility patterns that should map to known targets
+    GENERIC_FACILITY_MAPPINGS = {
+        r'iran.*oil\s*depot': 'tehran_refinery',
+        r'oil\s*depot.*iran': 'tehran_refinery',
+        r'iran.*oil\s*refiner': 'tehran_refinery',
+        r'iran.*fuel\s*depot': 'tehran_refinery',
+        r'iran.*nuclear': 'natanz_nuclear',
+        r'iran.*enrichment': 'natanz_nuclear',
+        r'iran.*missile.*base': 'khojir_missile',
+        r'iran.*air\s*defense': 'isfahan_airbase',
+    }
+    
+    def match_generic_facility(self, text):
+        """
+        Match generic facility mentions (like 'Iran oil depots') to known targets.
+        Returns target_id if matched, None otherwise.
+        """
+        text_lower = text.lower()
+        for pattern, target_id in self.GENERIC_FACILITY_MAPPINGS.items():
+            if re.search(pattern, text_lower):
+                return target_id
+        return None
+    
     def extract_locations(self, text):
         """Extract location names from article text."""
         locations = set()
