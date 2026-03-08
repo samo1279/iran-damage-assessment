@@ -1,6 +1,7 @@
 import { useQuery } from '@tanstack/react-query';
 import { fetchJSON } from '../../api/client';
 import { Spinner } from '../ui/Spinner';
+import { useAppStore } from '../../store/useAppStore';
 
 interface EvacuationZone {
   zone_id: string;
@@ -11,6 +12,13 @@ interface EvacuationZone {
   radius_km: number;
   population: number;
   facilities: string[];
+}
+
+interface MapMarker {
+  lat: number;
+  lon: number;
+  name: string;
+  type: string;
 }
 
 interface Warning {
@@ -30,6 +38,10 @@ interface Warning {
   affected_zones: EvacuationZone[];
   matched_keywords: string[];
   expires_at: string;
+  // NEW fields
+  target_location?: { lat: number; lon: number; name: string; type: string };
+  map_marker?: MapMarker;
+  video_urls?: string[];
 }
 
 interface WarningsResponse {
@@ -41,6 +53,7 @@ interface WarningsResponse {
 }
 
 export function AlarmsPanel() {
+  const flyTo = useAppStore((s) => s.flyTo);
   const { data, isLoading, refetch, isFetching } = useQuery<WarningsResponse>({
     queryKey: ['early-warnings'],
     queryFn: async () => {
@@ -76,6 +89,11 @@ export function AlarmsPanel() {
       case 'WATCH': return '👁️';
       default: return '📢';
     }
+  };
+
+  // Fly to location on map
+  const handleFlyToLocation = (lat: number, lon: number) => {
+    flyTo(lat, lon, 14);
   };
 
   if (isLoading) {
@@ -162,14 +180,16 @@ export function AlarmsPanel() {
                   🎯 Affected Areas ({warning.affected_zones.length})
                 </div>
                 {warning.affected_zones.map((zone) => (
-                  <div
+                  <button
                     key={zone.zone_id}
-                    className="bg-black/30 rounded-lg p-2 flex justify-between items-center"
+                    onClick={() => handleFlyToLocation(zone.lat, zone.lon)}
+                    className="w-full bg-black/30 rounded-lg p-2 flex justify-between items-center hover:bg-black/50 transition-colors cursor-pointer text-left"
                   >
                     <div>
                       <span className="text-xs font-bold text-white">{zone.name}</span>
                       <span className="text-xs text-gray-400 mx-2">|</span>
                       <span className="text-xs text-gray-300" dir="rtl">{zone.name_fa}</span>
+                      <span className="text-[9px] text-accent ml-2">📍 View on Map</span>
                     </div>
                     <div className="text-right">
                       <div className="text-[10px] text-red-400 font-bold">
@@ -179,7 +199,7 @@ export function AlarmsPanel() {
                         {zone.radius_km}km radius
                       </div>
                     </div>
-                  </div>
+                  </button>
                 ))}
 
                 {/* Facilities */}
@@ -188,6 +208,65 @@ export function AlarmsPanel() {
                   {warning.affected_zones.flatMap(z => z.facilities).slice(0, 5).join(', ')}
                   {warning.affected_zones.flatMap(z => z.facilities).length > 5 && '...'}
                 </div>
+              </div>
+            )}
+
+            {/* Target location - precise coordinate */}
+            {warning.map_marker && (
+              <button
+                onClick={() => handleFlyToLocation(warning.map_marker!.lat, warning.map_marker!.lon)}
+                className="w-full mt-3 bg-red-900/30 border border-red-500/50 rounded-lg p-2 flex items-center justify-between hover:bg-red-900/50 transition-colors"
+              >
+                <div className="flex items-center gap-2">
+                  <span className="text-lg">🎯</span>
+                  <div>
+                    <div className="text-xs font-bold text-red-400">{warning.map_marker.name}</div>
+                    <div className="text-[9px] text-gray-400">
+                      {warning.map_marker.lat.toFixed(4)}, {warning.map_marker.lon.toFixed(4)}
+                    </div>
+                  </div>
+                </div>
+                <span className="text-xs text-accent font-bold">VIEW ON MAP →</span>
+              </button>
+            )}
+
+            {/* Video - if available */}
+            {warning.video_urls && warning.video_urls.length > 0 && (
+              <div className="mt-3 space-y-2">
+                <div className="text-[10px] font-bold text-gray-400 uppercase tracking-wider">
+                  🎥 Video / Media
+                </div>
+                {warning.video_urls.map((videoUrl, idx) => (
+                  <div key={idx}>
+                    {videoUrl.includes('twitter.com') || videoUrl.includes('x.com') ? (
+                      // Twitter embed
+                      <a
+                        href={videoUrl}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="block bg-black/30 rounded-lg p-3 hover:bg-black/50 transition-colors"
+                      >
+                        <div className="flex items-center gap-2">
+                          <span className="text-2xl">▶️</span>
+                          <div>
+                            <div className="text-xs text-white font-bold">Watch Video on 𝕏</div>
+                            <div className="text-[9px] text-gray-400">Click to open in new tab</div>
+                          </div>
+                        </div>
+                      </a>
+                    ) : (
+                      // Direct video
+                      <video
+                        src={videoUrl}
+                        controls
+                        className="w-full rounded-lg max-h-48 bg-black"
+                        preload="metadata"
+                      >
+                        <source src={videoUrl} type="video/mp4" />
+                      </video>
+                    )}
+                  </div>
+                ))}
               </div>
             )}
 
@@ -206,10 +285,31 @@ export function AlarmsPanel() {
         );
       })}
 
-      {/* Info footer */}
-      <div className="text-center text-[10px] text-gray-600 pt-2 border-t border-white/5">
-        <div>Monitoring: CENTCOM, IDF, Reuters, AP</div>
-        <div>Updates every {data?.refresh_interval_minutes || 20} minutes</div>
+      {/* Info footer - Show monitored sources */}
+      <div className="pt-3 border-t border-white/10 space-y-2">
+        <div className="text-[10px] font-bold text-gray-500 uppercase tracking-wider text-center">
+          Monitored Sources
+        </div>
+        <div className="grid grid-cols-3 gap-2 text-center">
+          <a href="https://x.com/IDF" target="_blank" rel="noopener noreferrer" 
+             className="bg-blue-900/20 border border-blue-500/30 rounded-lg py-2 px-1 hover:bg-blue-900/40 transition-colors">
+            <div className="text-base">🇮🇱</div>
+            <div className="text-[9px] text-blue-400 font-bold">@IDF</div>
+          </a>
+          <a href="https://x.com/CENTCOM" target="_blank" rel="noopener noreferrer"
+             className="bg-green-900/20 border border-green-500/30 rounded-lg py-2 px-1 hover:bg-green-900/40 transition-colors">
+            <div className="text-base">🇺🇸</div>
+            <div className="text-[9px] text-green-400 font-bold">@CENTCOM</div>
+          </a>
+          <a href="https://x.com/Vahid" target="_blank" rel="noopener noreferrer"
+             className="bg-purple-900/20 border border-purple-500/30 rounded-lg py-2 px-1 hover:bg-purple-900/40 transition-colors">
+            <div className="text-base">🇮🇷</div>
+            <div className="text-[9px] text-purple-400 font-bold">@Vahid</div>
+          </a>
+        </div>
+        <div className="text-center text-[9px] text-gray-600">
+          + Reuters, AP, GDELT | Updates every {data?.refresh_interval_minutes || 20} min
+        </div>
       </div>
     </div>
   );
