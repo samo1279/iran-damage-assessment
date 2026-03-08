@@ -73,12 +73,21 @@ export default function App() {
 
       {/* Mobile Layout Overlays */}
       <div className="flex md:hidden flex-1 flex-col overflow-hidden relative">
-        <div className={`absolute inset-0 bg-bg z-20 overflow-y-auto pb-16 ${!showMap ? 'block' : 'hidden'}`}>
-          <div className="p-4 border-b border-white/5 flex items-center justify-between bg-card shrink-0">
-             <h1 className="text-sm font-black text-white uppercase tracking-tighter">IRI ASSESSMENT PLATFORM</h1>
-             <div className="flex items-center gap-1.5 grayscale opacity-50">
-               <span className="w-1.5 h-1.5 rounded-full bg-success animate-pulse" />
-               <span className="text-[10px] font-mono text-dim">LIVE</span>
+        <div className={`absolute inset-0 bg-[#0d1117] z-20 overflow-y-auto pb-20 ${!showMap ? 'block' : 'hidden'}`}>
+          {/* Mobile Header */}
+          <div className="sticky top-0 z-10 px-4 py-3 border-b-2 border-accent/20 flex items-center justify-between bg-[#161b22] shadow-lg">
+             <div className="flex items-center gap-2">
+               <div className="w-8 h-8 rounded-lg bg-accent/20 flex items-center justify-center">
+                 <span className="text-lg">🇮🇷</span>
+               </div>
+               <div>
+                 <h1 className="text-sm font-black text-white uppercase tracking-tight">IRI Assessment</h1>
+                 <div className="text-[9px] text-gray-500 uppercase">Real-Time Intelligence</div>
+               </div>
+             </div>
+             <div className="flex items-center gap-2 px-2 py-1 rounded-full bg-green-500/10 border border-green-500/30">
+               <span className="w-2 h-2 rounded-full bg-green-500 animate-pulse" />
+               <span className="text-[10px] font-bold text-green-400">LIVE</span>
              </div>
           </div>
           <Sidebar isMobile />

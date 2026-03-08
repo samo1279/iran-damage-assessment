@@ -234,3 +234,60 @@
     margin-top: 10px !important;
   }
 }
+
+/* ─── Enhanced Mobile Styles ───────────────────────────────────────── */
+
+/* Better card styling on mobile */
+@media (max-width: 768px) {
+  /* Cards with better borders */
+  .bg-card\/40, 
+  .bg-black\/30 {
+    border-radius: 12px !important;
+  }
+  
+  /* Bigger touch targets */
+  button, a {
+    min-height: 44px;
+  }
+  
+  /* Better text readability */
+  .text-\[10px\] {
+    font-size: 11px !important;
+  }
+  
+  .text-\[9px\] {
+    font-size: 10px !important;
+  }
+  
+  /* Mobile-friendly spacing */
+  .space-y-3 > * + * {
+    margin-top: 1rem !important;
+  }
+  
+  /* Panel cards - better shadows and borders */
+  .rounded-xl {
+    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.3) !important;
+  }
+  
+  /* Scrollbar hide on mobile */
+  .custom-scrollbar::-webkit-scrollbar {
+    display: none;
+  }
+  
+  .custom-scrollbar {
+    -ms-overflow-style: none;
+    scrollbar-width: none;
+  }
+}
+
+/* iOS safe areas */
+@supports (padding: max(0px)) {
+  .safe-area-pb {
+    padding-bottom: max(12px, env(safe-area-inset-bottom));
+  }
+}
+
+/* Border width helper */
+.border-b-3 {
+  border-bottom-width: 3px;
+}

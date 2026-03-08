@@ -89,13 +89,13 @@ export function EarlyWarningPanel() {
   if (isLoading) return null;
   if (warnings.length === 0) return null;
   if (isDismissed) {
-    // Show minimized bar when dismissed
+    // Show minimized bar when dismissed - mobile friendly
     return (
       <button
         onClick={() => setIsDismissed(false)}
-        className="fixed top-0 left-0 right-0 z-50 bg-red-900/90 text-white text-center py-1 text-sm font-bold hover:bg-red-800 transition-colors"
+        className="fixed top-0 left-0 right-0 z-50 bg-red-900/95 text-white text-center py-3 md:py-2 text-xs md:text-sm font-bold active:bg-red-800 transition-colors border-b-2 border-red-500"
       >
-        🚨 {warnings.length} Active Warning{warnings.length > 1 ? 's' : ''} - Click to show | {criticalWarnings.length > 0 ? `${criticalWarnings.length} CRITICAL` : 'Monitoring'}
+        <span className="animate-pulse">🚨</span> {warnings.length} Warning{warnings.length > 1 ? 's' : ''} {criticalWarnings.length > 0 && <span className="bg-red-600 px-2 py-0.5 rounded text-[10px] ml-2">CRITICAL</span>}
       </button>
     );
   }
@@ -117,45 +117,46 @@ export function EarlyWarningPanel() {
 
   return (
     <div className="fixed top-0 left-0 right-0 z-50">
-      {/* Critical Warning Banner */}
+      {/* Critical Warning Banner - Mobile optimized */}
       {criticalWarnings.length > 0 && (
-        <div className={`${getLevelStyles(criticalWarnings[0].level)} p-3 shadow-lg`}>
-          <div className="flex items-center justify-between max-w-6xl mx-auto">
-            <div className="flex items-center gap-3 flex-1">
-              <span className="text-2xl">⚠️</span>
-              <div className="text-left flex-1">
-                <div className="text-sm md:text-lg font-bold">{criticalWarnings[0].message_en}</div>
-                <div className="text-base md:text-xl font-bold" dir="rtl">{criticalWarnings[0].message_fa}</div>
+        <div className={`${getLevelStyles(criticalWarnings[0].level)} p-2 md:p-3 shadow-lg border-b-2 border-white/20`}>
+          <div className="flex items-start md:items-center justify-between gap-2">
+            <div className="flex items-start md:items-center gap-2 flex-1 min-w-0">
+              <span className="text-xl md:text-2xl shrink-0">⚠️</span>
+              <div className="text-left flex-1 min-w-0">
+                <div className="text-xs md:text-lg font-bold truncate">{criticalWarnings[0].message_en}</div>
+                <div className="text-sm md:text-xl font-bold truncate" dir="rtl">{criticalWarnings[0].message_fa}</div>
               </div>
             </div>
-            <div className="flex items-center gap-2 shrink-0">
+            <div className="flex items-center gap-1 md:gap-2 shrink-0">
               <button
                 onClick={() => setAudioEnabled(!audioEnabled)}
-                className="p-2 bg-black/20 rounded hover:bg-black/40 text-sm"
+                className="p-2 md:p-2 bg-black/20 rounded-lg active:bg-black/40 text-base md:text-sm min-w-[40px]"
                 title={audioEnabled ? 'Mute alerts' : 'Enable alerts'}
               >
                 {audioEnabled ? '🔊' : '🔇'}
               </button>
               <button
                 onClick={goToAlarmsTab}
-                className="px-3 py-2 bg-black/30 rounded hover:bg-black/50 text-sm font-bold"
+                className="px-2 md:px-3 py-2 bg-black/30 rounded-lg active:bg-black/50 text-xs md:text-sm font-bold whitespace-nowrap"
               >
-                📋 View All
+                <span className="hidden md:inline">📋 View All</span>
+                <span className="md:hidden">📋</span>
               </button>
               <button
                 onClick={() => setIsDismissed(true)}
-                className="px-3 py-2 bg-black/30 rounded hover:bg-black/50 text-sm font-bold"
+                className="px-2 md:px-3 py-2 bg-black/30 rounded-lg active:bg-black/50 text-xs md:text-sm font-bold"
               >
-                ✕ Minimize
+                ✕
               </button>
             </div>
           </div>
-          {/* Affected zones quick summary */}
+          {/* Affected zones quick summary - scrollable on mobile */}
           {criticalWarnings[0].affected_zones.length > 0 && (
-            <div className="max-w-6xl mx-auto mt-2 flex flex-wrap gap-2">
+            <div className="mt-2 flex gap-2 overflow-x-auto pb-1 -mx-2 px-2">
               {criticalWarnings[0].affected_zones.map(zone => (
-                <span key={zone.zone_id} className="bg-black/30 px-2 py-1 rounded text-xs font-bold">
-                  📍 {zone.name} ({zone.name_fa}) - {zone.population.toLocaleString()} civilians
+                <span key={zone.zone_id} className="bg-black/30 px-2 py-1 rounded-lg text-[10px] md:text-xs font-bold whitespace-nowrap shrink-0">
+                  📍 {zone.name} ({zone.name_fa})
                 </span>
               ))}
             </div>

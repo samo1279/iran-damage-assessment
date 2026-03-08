@@ -23,27 +23,34 @@ export function Sidebar({ isMobile = false }: SidebarProps) {
 
   return (
     <div className={`flex flex-col h-full overflow-hidden ${
-      isMobile ? 'w-full h-full bg-bg' : 'w-full h-full bg-black/70 backdrop-blur-2xl border border-white/10 rounded-2xl shadow-[0_0_50px_-10px_rgba(0,0,0,0.8)]'
+      isMobile 
+        ? 'w-full h-full bg-[#0d1117]' 
+        : 'w-full h-full bg-black/70 backdrop-blur-2xl border border-white/10 rounded-2xl shadow-[0_0_50px_-10px_rgba(0,0,0,0.8)]'
     }`}>
-      {/* Tab bar - LARGER TEXT & BOLDER DISPLAY */}
-      <div className={`flex shrink-0 ${isMobile ? 'bg-card border-b border-border' : 'bg-white/5 border-b border-white/10'}`}>
-        {TABS.map((t) => (
-          <button
-            key={t.id}
-            onClick={() => setActiveTab(t.id)}
-            className={`flex-1 py-5 md:py-4 text-center text-[11px] md:text-sm font-black tracking-[0.1em] transition-all duration-300 ${
-              activeTab === t.id
-                ? 'text-accent border-b-2 border-accent bg-accent/10 shadow-[inset_0_-10px_20px_-10px_rgba(0,180,216,0.2)]'
-                : 'text-gray-500 border-b-2 border-transparent hover:text-gray-300 hover:bg-white/5'
-            }`}
-          >
-            {t.label}
-          </button>
-        ))}
+      {/* Tab bar - Mobile optimized */}
+      <div className={`flex shrink-0 overflow-x-auto ${isMobile ? 'bg-[#161b22] border-b-2 border-accent/20' : 'bg-white/5 border-b border-white/10'}`}>
+        {TABS.map((t) => {
+          const isAlarm = t.id === 'alarms'
+          return (
+            <button
+              key={t.id}
+              onClick={() => setActiveTab(t.id)}
+              className={`flex-1 min-w-[70px] py-4 text-center text-[10px] md:text-sm font-black tracking-wider transition-all duration-200 ${
+                activeTab === t.id
+                  ? isAlarm 
+                    ? 'text-red-400 border-b-3 border-red-500 bg-red-500/10'
+                    : 'text-accent border-b-3 border-accent bg-accent/10'
+                  : 'text-gray-500 border-b-3 border-transparent active:bg-white/10'
+              }`}
+            >
+              {t.label}
+            </button>
+          )
+        })}
       </div>
 
-      {/* Panel content - MORE PADDING */}
-      <div className={`flex-1 overflow-y-auto p-5 custom-scrollbar ${isMobile ? 'pb-20' : ''}`}>
+      {/* Panel content - Better mobile padding */}
+      <div className={`flex-1 overflow-y-auto custom-scrollbar ${isMobile ? 'p-4 pb-24' : 'p-5'}`}>
         {activeTab === 'strikes' && <StrikesPanel />}
         {activeTab === 'targets' && <TargetsPanel />}
         {activeTab === 'news' && <NewsPanel />}
