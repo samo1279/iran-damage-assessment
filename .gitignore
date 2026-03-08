@@ -1,1 +1,75 @@
+# SECURITY - SENSITIVE FILES
+.env
+.env.local
+.env.production
+.env.*.local
+*.env
+credentials/
+secrets/
+*.pem
+*.key
+*.crt
+
+# LOG FILES
+*.log
+logs/
+
+# DATABASE FILES
+*.db
+*.sqlite
+*.sqlite3
+
+# PYTHON
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+venv/
+.venv/
+env/
+.eggs/
+*.egg-info/
+dist/
+build/
+.pytest_cache/
+.mypy_cache/
+
+# NODE.JS
+node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# IDE / EDITOR
+.idea/
+.vscode/
+*.swp
+*.swo
+*~
+
+# OS FILES
+.DS_Store
+Thumbs.db
+
+# LARGE DATA FILES
+*.tif
+*.tiff
+*.gif
+archive/
 screen /
+
+# Timelapse outputs
+timelapse_output/*.png
+timelapse_output/*.gif
+timelapse_output/*.tif
+
+# TEMPORARY FILES
+*.tmp
+*.temp
+*.bak
+*.cache
+
+# BUILD OUTPUTS
+frontend/dist/
+sentinel_timelapse/frontend/dist/
