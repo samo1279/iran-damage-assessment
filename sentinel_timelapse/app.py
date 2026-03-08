@@ -26,13 +26,16 @@ try:
     from src.osint.osint_engine import OSINTEngine, KNOWN_TARGETS
     from src.osint.correlation import CorrelationEngine
     from src.osint.target_manager import TargetManager, AutoDiscovery, migrate_hardcoded_targets, migrate_all_iran_locations, get_target_manager
+    from src.osint.early_warning import EarlyWarningSystem, get_warning_system, EVACUATION_ZONES, WARNING_LEVELS
     from src.core.config import AOI_CONFIG, TIMELAPSE_OUTPUT
     TARGET_MANAGER_AVAILABLE = True
     MODULES_AVAILABLE = True
+    EARLY_WARNING_AVAILABLE = True
 except ImportError as e:
     print(f"Warning: Some modules not available: {e}")
     MODULES_AVAILABLE = False
     TARGET_MANAGER_AVAILABLE = False
+    EARLY_WARNING_AVAILABLE = False
     AOI_CONFIG = {}
     TIMELAPSE_OUTPUT = "timelapse_output"
     KNOWN_TARGETS = {}
@@ -129,9 +132,15 @@ _background_cache = {
     'osint_data': None,
     'correlation_data': None,
     'is_running': False,
+    'active_warnings': [],  # Active evacuation warnings
+    'last_warning_check': None,
 }
 
-REFRESH_INTERVAL_HOURS = 1  # Refresh every 1 hour for real-time monitoring
+# ══════════════════════════════════════════════════════════════════════
+# EARLY WARNING SYSTEM - Monitors CENTCOM/IDF for pre-strike announcements
+# ══════════════════════════════════════════════════════════════════════
+REFRESH_INTERVAL_MINUTES = 20  # Check every 20 minutes for early warnings
+REFRESH_INTERVAL_HOURS = REFRESH_INTERVAL_MINUTES / 60  # For backward compatibility
 
 def background_osint_refresh():
     """Background thread that refreshes OSINT data periodically."""
@@ -162,6 +171,25 @@ def background_osint_refresh():
             # Just store osint_result for later API use
             correlation_result = {'targets_analyzed': len(targets), 'osint_articles': len(osint_result.get('articles', []))}
             
+            # ══════════════════════════════════════════════════════════════
+            # EARLY WARNING CHECK - Critical for civilian safety
+            # ══════════════════════════════════════════════════════════════
+            if EARLY_WARNING_AVAILABLE:
+                try:
+                    warning_system = get_warning_system()
+                    warning_result = warning_system.update_warnings()
+                    _background_cache['active_warnings'] = warning_result.get('warnings', [])
+                    _background_cache['last_warning_check'] = warning_result.get('checked_at')
+                    
+                    if warning_result.get('new_warnings', 0) > 0:
+                        print(f"[EARLY WARNING] ⚠️ {warning_result['new_warnings']} NEW WARNINGS DETECTED!")
+                        for w in warning_result.get('warnings', [])[:3]:
+                            print(f"  🚨 {w['level']}: {w['title'][:60]}")
+                            for zone in w.get('affected_zones', []):
+                                print(f"     → {zone['name']} ({zone['name_fa']}) - {zone['population']:,} civilians")
+                except Exception as we:
+                    print(f"[EARLY WARNING] Error: {we}")
+            
             # Auto-discover NEW targets from news (the magic!)
             if target_mgr:
                 try:
@@ -185,14 +213,14 @@ def background_osint_refresh():
             _background_cache['is_running'] = False
             
             print(f"[SCHEDULER] Background refresh complete. {len(targets)} targets, {len(osint_result.get('articles', []))} articles")
-            print(f"[SCHEDULER] Next refresh in {REFRESH_INTERVAL_HOURS} hours")
+            print(f"[SCHEDULER] Next refresh in {REFRESH_INTERVAL_MINUTES} minutes")
             
         except Exception as e:
             print(f"[SCHEDULER] Error in background refresh: {e}")
             _background_cache['is_running'] = False
         
-        # Wait for next refresh interval
-        time.sleep(REFRESH_INTERVAL_HOURS * 60 * 60)
+        # Wait for next refresh interval (20 minutes for early warning)
+        time.sleep(REFRESH_INTERVAL_MINUTES * 60)
 
 
 def start_background_scheduler():
@@ -938,6 +966,123 @@ def scheduler_status():
         'last_refresh': _background_cache.get('last_refresh'),
         'is_refreshing': _background_cache.get('is_running', False),
         'has_cached_data': _background_cache.get('osint_data') is not None,
+    })
+
+
+# ══════════════════════════════════════════════════════════════════════════════
+# EARLY WARNING SYSTEM API - Civilian Safety Alerts
+# ══════════════════════════════════════════════════════════════════════════════
+
+@app.route('/api/early-warnings')
+def get_early_warnings():
+    """
+    Get active evacuation warnings for civilians.
+    Monitors CENTCOM/IDF for pre-strike announcements.
+    Updates every 20 minutes automatically.
+    """
+    if not EARLY_WARNING_AVAILABLE:
+        return jsonify({
+            'success': False,
+            'error': 'Early warning system not available',
+            'warnings': [],
+        })
+    
+    try:
+        warning_system = get_warning_system()
+        active = warning_system.get_active_warnings()
+        
+        # Also include cached warnings from background thread
+        cached_warnings = _background_cache.get('active_warnings', [])
+        
+        # Merge and deduplicate
+        all_warnings = {w['id']: w for w in active}
+        for w in cached_warnings:
+            if w['id'] not in all_warnings:
+                all_warnings[w['id']] = w
+        
+        warnings_list = sorted(all_warnings.values(), 
+                              key=lambda w: w.get('level_num', 0), 
+                              reverse=True)
+        
+        return jsonify({
+            'success': True,
+            'warnings': warnings_list,
+            'count': len(warnings_list),
+            'last_check': warning_system.last_check,
+            'refresh_interval_minutes': REFRESH_INTERVAL_MINUTES,
+        })
+    except Exception as e:
+        return jsonify({'success': False, 'error': str(e), 'warnings': []}), 500
+
+
+@app.route('/api/early-warnings/refresh', methods=['POST'])
+def refresh_early_warnings():
+    """
+    Force refresh of early warning system.
+    Checks all sources immediately.
+    """
+    if not EARLY_WARNING_AVAILABLE:
+        return jsonify({'success': False, 'error': 'Early warning system not available'})
+    
+    try:
+        warning_system = get_warning_system()
+        result = warning_system.update_warnings()
+        
+        # Update background cache
+        _background_cache['active_warnings'] = result.get('warnings', [])
+        _background_cache['last_warning_check'] = result.get('checked_at')
+        
+        return jsonify({
+            'success': True,
+            'new_warnings': result.get('new_warnings', 0),
+            'active_warnings': result.get('active_warnings', 0),
+            'warnings': result.get('warnings', []),
+            'checked_at': result.get('checked_at'),
+        })
+    except Exception as e:
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+
+@app.route('/api/evacuation-zones')
+def get_evacuation_zones():
+    """
+    Get list of all monitored evacuation zones with coordinates.
+    Used to display warning circles on map.
+    """
+    if not EARLY_WARNING_AVAILABLE:
+        return jsonify({'success': False, 'zones': []})
+    
+    zones = []
+    for zone_id, zone in EVACUATION_ZONES.items():
+        zones.append({
+            'id': zone_id,
+            'name': zone['name'],
+            'name_fa': zone['name_fa'],
+            'lat': zone['lat'],
+            'lon': zone['lon'],
+            'radius_km': zone['radius_km'],
+            'population': zone['population'],
+            'facilities': zone['facilities'],
+        })
+    
+    return jsonify({
+        'success': True,
+        'zones': zones,
+        'count': len(zones),
+    })
+
+
+@app.route('/api/warning-levels')
+def get_warning_levels():
+    """
+    Get warning level definitions for UI display.
+    """
+    if not EARLY_WARNING_AVAILABLE:
+        return jsonify({'success': False, 'levels': {}})
+    
+    return jsonify({
+        'success': True,
+        'levels': WARNING_LEVELS,
     })
 
 

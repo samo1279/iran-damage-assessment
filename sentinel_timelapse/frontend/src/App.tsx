@@ -4,6 +4,7 @@ import { StatsBar } from './components/layout/StatsBar'
 import { Sidebar } from './components/layout/Sidebar'
 import { HelpModal } from './components/HelpModal'
 import { MobileNav } from './components/layout/MobileNav'
+import { EarlyWarningPanel } from './components/EarlyWarningPanel'
 import { useLiveUpdates } from './api/hooks'
 
 // Lazy load the heavy MapView component (290KB Leaflet)
@@ -43,6 +44,9 @@ export default function App() {
 
   return (
     <div className="flex flex-col h-screen overflow-hidden">
+      {/* Early Warning System - Top Priority for Civilian Safety */}
+      <EarlyWarningPanel />
+      
       {/* Top Main Overlay (The 574 count and stats) */}
       <Suspense fallback={null}>
         <div className="absolute top-0 left-0 right-0 z-[2000]">
