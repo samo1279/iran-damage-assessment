@@ -43,58 +43,59 @@ export default function App() {
   }, [mapReady])
 
   return (
-    <div className="flex flex-col h-screen overflow-hidden">
+    <div className="flex flex-col h-screen h-[100dvh] overflow-hidden bg-[#0d1117]">
       {/* Early Warning System - Top Priority for Civilian Safety */}
       <EarlyWarningPanel />
       
-      {/* Top Main Overlay (The 574 count and stats) */}
-      <Suspense fallback={null}>
-        <div className="absolute top-0 left-0 right-0 z-[2000]">
-          {/* Note: MapView will render the TargetCountBadge inside itself but it is absolute positioned to the top. 
-              We'll remove the standard TopBar and StatsBar from the main layout to give full map height. */}
-        </div>
-      </Suspense>
-
-      <div className="flex flex-1 overflow-hidden relative">
-        {/* Full-screen Map with Header Overlay */}
-        <div className="absolute inset-0 z-0">
+      {/* MAIN CONTENT - Full screen map with overlays */}
+      <div className="flex-1 relative overflow-hidden">
+        {/* Full-screen Map - fills entire viewport */}
+        <div className="absolute inset-0">
           <Suspense fallback={<MapLoader />}>
             <MapView />
           </Suspense>
         </div>
 
-        {/* Floating Sidebar Container - RIGHT SIDE for better spacing with map legends */}
+        {/* Desktop: Floating Sidebar on right */}
         <div className="hidden md:block absolute right-6 top-8 bottom-8 z-50 w-[420px] pointer-events-none">
           <div className="w-full h-full pointer-events-auto">
             <Sidebar />
           </div>
         </div>
-      </div>
 
-      {/* Mobile Layout Overlays */}
-      <div className="flex md:hidden flex-1 flex-col overflow-hidden relative">
-        <div className={`absolute inset-0 bg-[#0d1117] z-20 overflow-y-auto pb-20 ${!showMap ? 'block' : 'hidden'}`}>
+        {/* Mobile: Full-screen panel overlay (slides over map) */}
+        <div 
+          className={`md:hidden absolute inset-0 z-40 bg-[#0d1117] transition-transform duration-300 ${
+            showMap ? 'translate-x-full' : 'translate-x-0'
+          }`}
+        >
           {/* Mobile Header */}
           <div className="sticky top-0 z-10 px-4 py-3 border-b-2 border-accent/20 flex items-center justify-between bg-[#161b22] shadow-lg">
-             <div className="flex items-center gap-2">
-               <div className="w-8 h-8 rounded-lg bg-accent/20 flex items-center justify-center">
-                 <span className="text-lg">🇮🇷</span>
-               </div>
-               <div>
-                 <h1 className="text-sm font-black text-white uppercase tracking-tight">IRI Assessment</h1>
-                 <div className="text-[9px] text-gray-500 uppercase">Real-Time Intelligence</div>
-               </div>
-             </div>
-             <div className="flex items-center gap-2 px-2 py-1 rounded-full bg-green-500/10 border border-green-500/30">
-               <span className="w-2 h-2 rounded-full bg-green-500 animate-pulse" />
-               <span className="text-[10px] font-bold text-green-400">LIVE</span>
-             </div>
+            <div className="flex items-center gap-2">
+              <div className="w-8 h-8 rounded-lg bg-accent/20 flex items-center justify-center">
+                <span className="text-lg">🇮🇷</span>
+              </div>
+              <div>
+                <h1 className="text-sm font-black text-white uppercase tracking-tight">IRI Assessment</h1>
+                <div className="text-[9px] text-gray-500 uppercase">Real-Time Intelligence</div>
+              </div>
+            </div>
+            <button 
+              onClick={() => setShowMap(true)}
+              className="flex items-center gap-2 px-3 py-2 rounded-lg bg-accent/20 border border-accent/30 active:bg-accent/30"
+            >
+              <span>🗺️</span>
+              <span className="text-[10px] font-bold text-accent">MAP</span>
+            </button>
           </div>
-          <Sidebar isMobile />
+          {/* Scrollable content area */}
+          <div className="h-[calc(100%-60px)] overflow-y-auto pb-24">
+            <Sidebar isMobile />
+          </div>
         </div>
       </div>
 
-      {/* Mobile Bottom Navigation */}
+      {/* Mobile Bottom Navigation - always visible */}
       <MobileNav 
         onOpenSidebar={() => setSidebarOpen(true)}
         showMap={showMap}
