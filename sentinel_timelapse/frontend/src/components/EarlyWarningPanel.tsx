@@ -1,6 +1,6 @@
 import { useQuery } from '@tanstack/react-query';
 import { useState, useEffect } from 'react';
-import { apiClient } from '../api/client';
+import { fetchJSON } from '../api/client';
 
 interface EvacuationZone {
   zone_id: string;
@@ -48,8 +48,8 @@ export function EarlyWarningPanel() {
   const { data, isLoading, refetch } = useQuery<WarningsResponse>({
     queryKey: ['early-warnings'],
     queryFn: async () => {
-      const response = await apiClient.get('/api/early-warnings');
-      return response.data;
+      const response = await fetchJSON<WarningsResponse>('/api/early-warnings');
+      return response || { success: false, warnings: [], count: 0, last_check: '', refresh_interval_minutes: 20 };
     },
     refetchInterval: 60000, // Check every minute
     staleTime: 30000,
