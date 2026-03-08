@@ -1,6 +1,6 @@
 import { create } from 'zustand'
 
-export type TabId = 'strikes' | 'targets' | 'news' | 'satellite'
+export type TabId = 'strikes' | 'targets' | 'news' | 'alarms' | 'satellite'
 
 interface MapFocus {
   lat: number

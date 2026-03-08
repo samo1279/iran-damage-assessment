@@ -2,13 +2,15 @@ import { useAppStore, type TabId } from '../../store/useAppStore'
 import { StrikesPanel } from '../panels/StrikesPanel'
 import { TargetsPanel } from '../panels/TargetsPanel'
 import { NewsPanel } from '../panels/NewsPanel'
+import { AlarmsPanel } from '../panels/AlarmsPanel'
 import { SatellitePanel } from '../panels/SatellitePanel'
 
 const TABS: { id: TabId; label: string }[] = [
   { id: 'strikes', label: 'STRIKES' },
   { id: 'targets', label: 'TARGETS' },
   { id: 'news', label: 'NEWS' },
-  { id: 'satellite', label: 'SATELLITE' },
+  { id: 'alarms', label: '🚨 ALARMS' },
+  { id: 'satellite', label: 'SAT' },
 ]
 
 interface SidebarProps {
@@ -45,6 +47,7 @@ export function Sidebar({ isMobile = false }: SidebarProps) {
         {activeTab === 'strikes' && <StrikesPanel />}
         {activeTab === 'targets' && <TargetsPanel />}
         {activeTab === 'news' && <NewsPanel />}
+        {activeTab === 'alarms' && <AlarmsPanel />}
         {activeTab === 'satellite' && <SatellitePanel />}
       </div>
 

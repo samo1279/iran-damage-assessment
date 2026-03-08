@@ -1,6 +1,7 @@
 import { useQuery } from '@tanstack/react-query';
 import { useState, useEffect } from 'react';
 import { fetchJSON } from '../api/client';
+import { useAppStore } from '../store/useAppStore';
 
 interface EvacuationZone {
   zone_id: string;
@@ -41,11 +42,12 @@ interface WarningsResponse {
 }
 
 export function EarlyWarningPanel() {
-  const [isExpanded, setIsExpanded] = useState(true);
+  const [isDismissed, setIsDismissed] = useState(false);
   const [audioEnabled, setAudioEnabled] = useState(true);
+  const setActiveTab = useAppStore((s) => s.setActiveTab);
 
   // Fetch warnings every 60 seconds
-  const { data, isLoading, refetch } = useQuery<WarningsResponse>({
+  const { data, isLoading } = useQuery<WarningsResponse>({
     queryKey: ['early-warnings'],
     queryFn: async () => {
       const response = await fetchJSON<WarningsResponse>('/api/early-warnings');
@@ -61,6 +63,8 @@ export function EarlyWarningPanel() {
   // Play alert sound for critical warnings
   useEffect(() => {
     if (criticalWarnings.length > 0 && audioEnabled) {
+      // Reset dismissed state when new critical warnings arrive
+      setIsDismissed(false);
       try {
         // Use Web Audio API for alert
         const ctx = new (window.AudioContext || (window as any).webkitAudioContext)();
@@ -76,8 +80,25 @@ export function EarlyWarningPanel() {
     }
   }, [criticalWarnings.length, audioEnabled]);
 
+  // Handle going to alarms tab
+  const goToAlarmsTab = () => {
+    setActiveTab('alarms');
+    setIsDismissed(true);
+  };
+
   if (isLoading) return null;
   if (warnings.length === 0) return null;
+  if (isDismissed) {
+    // Show minimized bar when dismissed
+    return (
+      <button
+        onClick={() => setIsDismissed(false)}
+        className="fixed top-0 left-0 right-0 z-50 bg-red-900/90 text-white text-center py-1 text-sm font-bold hover:bg-red-800 transition-colors"
+      >
+        🚨 {warnings.length} Active Warning{warnings.length > 1 ? 's' : ''} - Click to show | {criticalWarnings.length > 0 ? `${criticalWarnings.length} CRITICAL` : 'Monitoring'}
+      </button>
+    );
+  }
 
   const getLevelStyles = (level: string) => {
     switch (level) {
@@ -98,134 +119,73 @@ export function EarlyWarningPanel() {
     <div className="fixed top-0 left-0 right-0 z-50">
       {/* Critical Warning Banner */}
       {criticalWarnings.length > 0 && (
-        <div className={`${getLevelStyles(criticalWarnings[0].level)} p-3 text-center font-bold shadow-lg`}>
-          <div className="flex items-center justify-center gap-3">
-            <span className="text-2xl">⚠️</span>
-            <div className="text-left">
-              <div className="text-lg">{criticalWarnings[0].message_en}</div>
-              <div className="text-xl font-bold" dir="rtl">{criticalWarnings[0].message_fa}</div>
+        <div className={`${getLevelStyles(criticalWarnings[0].level)} p-3 shadow-lg`}>
+          <div className="flex items-center justify-between max-w-6xl mx-auto">
+            <div className="flex items-center gap-3 flex-1">
+              <span className="text-2xl">⚠️</span>
+              <div className="text-left flex-1">
+                <div className="text-sm md:text-lg font-bold">{criticalWarnings[0].message_en}</div>
+                <div className="text-base md:text-xl font-bold" dir="rtl">{criticalWarnings[0].message_fa}</div>
+              </div>
             </div>
+            <div className="flex items-center gap-2 shrink-0">
+              <button
+                onClick={() => setAudioEnabled(!audioEnabled)}
+                className="p-2 bg-black/20 rounded hover:bg-black/40 text-sm"
+                title={audioEnabled ? 'Mute alerts' : 'Enable alerts'}
+              >
+                {audioEnabled ? '🔊' : '🔇'}
+              </button>
+              <button
+                onClick={goToAlarmsTab}
+                className="px-3 py-2 bg-black/30 rounded hover:bg-black/50 text-sm font-bold"
+              >
+                📋 View All
+              </button>
+              <button
+                onClick={() => setIsDismissed(true)}
+                className="px-3 py-2 bg-black/30 rounded hover:bg-black/50 text-sm font-bold"
+              >
+                ✕ Minimize
+              </button>
+            </div>
+          </div>
+          {/* Affected zones quick summary */}
+          {criticalWarnings[0].affected_zones.length > 0 && (
+            <div className="max-w-6xl mx-auto mt-2 flex flex-wrap gap-2">
+              {criticalWarnings[0].affected_zones.map(zone => (
+                <span key={zone.zone_id} className="bg-black/30 px-2 py-1 rounded text-xs font-bold">
+                  📍 {zone.name} ({zone.name_fa}) - {zone.population.toLocaleString()} civilians
+                </span>
+              ))}
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* Non-critical warnings summary */}
+      {criticalWarnings.length === 0 && warnings.length > 0 && (
+        <div className="bg-yellow-600 text-black p-2 flex items-center justify-between">
+          <div className="flex items-center gap-2">
+            <span>⚠️</span>
+            <span className="font-bold">{warnings.length} Active Warning{warnings.length > 1 ? 's' : ''}</span>
+            <span className="text-sm">- Monitoring CENTCOM/IDF</span>
+          </div>
+          <div className="flex gap-2">
             <button
-              onClick={() => setIsExpanded(!isExpanded)}
-              className="ml-4 px-3 py-1 bg-black/30 rounded hover:bg-black/50"
+              onClick={goToAlarmsTab}
+              className="px-3 py-1 bg-black/20 rounded hover:bg-black/30 text-sm font-bold"
             >
-              {isExpanded ? 'Hide Details' : 'Show Details'}
+              📋 View All
+            </button>
+            <button
+              onClick={() => setIsDismissed(true)}
+              className="px-3 py-1 bg-black/20 rounded hover:bg-black/30 text-sm"
+            >
+              ✕
             </button>
           </div>
         </div>
-      )}
-
-      {/* Expanded Warning Details */}
-      {isExpanded && warnings.length > 0 && (
-        <div className="bg-gray-900/95 backdrop-blur border-b border-gray-700 max-h-[50vh] overflow-y-auto">
-          <div className="container mx-auto p-4">
-            <div className="flex justify-between items-center mb-4">
-              <h2 className="text-xl font-bold text-white flex items-center gap-2">
-                🚨 EARLY WARNING SYSTEM - نظام هشدار اولیه
-              </h2>
-              <div className="flex gap-2">
-                <button
-                  onClick={() => setAudioEnabled(!audioEnabled)}
-                  className={`px-3 py-1 rounded text-sm ${audioEnabled ? 'bg-green-600' : 'bg-gray-600'}`}
-                >
-                  {audioEnabled ? '🔊 Sound ON' : '🔇 Sound OFF'}
-                </button>
-                <button
-                  onClick={() => refetch()}
-                  className="px-3 py-1 bg-blue-600 rounded text-sm hover:bg-blue-700"
-                >
-                  🔄 Refresh
-                </button>
-              </div>
-            </div>
-
-            <div className="grid gap-4">
-              {warnings.map((warning) => (
-                <div
-                  key={warning.id}
-                  className={`${getLevelStyles(warning.level)} rounded-lg p-4 border-2`}
-                >
-                  <div className="flex justify-between items-start">
-                    <div className="flex-1">
-                      <div className="flex items-center gap-2 mb-2">
-                        <span className="px-2 py-1 bg-black/30 rounded text-sm font-bold">
-                          {warning.level}
-                        </span>
-                        <span className="text-sm opacity-80">
-                          Source: {warning.source_name}
-                        </span>
-                      </div>
-                      <h3 className="font-bold text-lg mb-2">{warning.title}</h3>
-                      <p className="text-sm mb-3">{warning.action}</p>
-
-                      {/* Affected Zones */}
-                      <div className="bg-black/20 rounded p-3">
-                        <h4 className="font-bold mb-2">
-                          🎯 AFFECTED AREAS - مناطق تحت تأثیر
-                        </h4>
-                        <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
-                          {warning.affected_zones.map((zone) => (
-                            <div
-                              key={zone.zone_id}
-                              className="bg-black/30 rounded p-2 flex justify-between items-center"
-                            >
-                              <div>
-                                <span className="font-bold">{zone.name}</span>
-                                <span className="mx-2" dir="rtl">({zone.name_fa})</span>
-                              </div>
-                              <div className="text-right text-sm">
-                                <div>👥 {zone.population.toLocaleString()} people</div>
-                                <div>📍 {zone.radius_km} km radius</div>
-                              </div>
-                            </div>
-                          ))}
-                        </div>
-                        
-                        {/* Facilities in danger */}
-                        {warning.affected_zones.length > 0 && (
-                          <div className="mt-2 text-sm">
-                            <span className="font-bold">🏭 Facilities: </span>
-                            {warning.affected_zones
-                              .flatMap(z => z.facilities)
-                              .join(', ')}
-                          </div>
-                        )}
-                      </div>
-                    </div>
-                  </div>
-
-                  {/* Action Button */}
-                  {warning.url && (
-                    <a
-                      href={warning.url}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="inline-block mt-3 px-4 py-2 bg-black/30 rounded hover:bg-black/50 text-sm"
-                    >
-                      📰 Read Full Report →
-                    </a>
-                  )}
-                </div>
-              ))}
-            </div>
-
-            {/* Last Update Info */}
-            <div className="mt-4 text-center text-gray-400 text-sm">
-              Last checked: {data?.last_check || 'Unknown'} | 
-              Updates every {data?.refresh_interval_minutes || 20} minutes
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* Collapse button when not expanded but have warnings */}
-      {!isExpanded && warnings.length > 0 && !criticalWarnings.length && (
-        <button
-          onClick={() => setIsExpanded(true)}
-          className="w-full bg-yellow-600 text-center py-2 text-sm font-bold hover:bg-yellow-500"
-        >
-          ⚠️ {warnings.length} Active Warning(s) - Click to expand
-        </button>
       )}
     </div>
   );
