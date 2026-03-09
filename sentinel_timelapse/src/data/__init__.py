@@ -1,1 +1,0 @@
-# Iran locations database
