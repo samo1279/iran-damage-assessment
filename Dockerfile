@@ -2,9 +2,9 @@
 FROM node:18-alpine AS frontend-builder
 
 WORKDIR /app/frontend
-COPY sentinel_timelapse/frontend/package*.json ./
+COPY frontend/package*.json ./
 RUN npm install
-COPY sentinel_timelapse/frontend/ ./
+COPY frontend/ ./
 RUN npm run build
 
 # Stage 2: Python Backend
@@ -23,14 +23,14 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 WORKDIR /app
 
 # Copy requirements and install Python dependencies
-COPY sentinel_timelapse/requirements.txt .
+COPY requirements.txt .
 RUN pip install --no-cache-dir --upgrade pip && \
     pip install --no-cache-dir setuptools wheel && \
     pip install --no-cache-dir rasterio && \
     pip install --no-cache-dir -r requirements.txt
 
 # Copy application code
-COPY sentinel_timelapse/ .
+COPY . .
 
 # Copy built frontend from stage 1 to frontend/dist (where app.py expects it)
 COPY --from=frontend-builder /app/frontend/dist ./frontend/dist
