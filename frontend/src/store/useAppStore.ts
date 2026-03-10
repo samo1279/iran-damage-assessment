@@ -1,6 +1,14 @@
 import { create } from 'zustand'
 
-export type TabId = 'strikes' | 'targets' | 'news' | 'alarms' | 'satellite'
+export type TabId = 'strikes' | 'targets' | 'news' | 'satellite'
+
+interface TargetDetails {
+  id: string
+  name: string
+  type: string
+  lat: number
+  lon: number
+}
 
 interface MapFocus {
   lat: number
@@ -13,6 +21,9 @@ interface MapFocus {
 interface AppState {
   activeTab: TabId
   setActiveTab: (tab: TabId) => void
+
+  selectedTarget: TargetDetails | null
+  setSelectedTarget: (target: TargetDetails | null) => void
 
   helpOpen: boolean
   toggleHelp: () => void
@@ -27,6 +38,9 @@ interface AppState {
 export const useAppStore = create<AppState>((set) => ({
   activeTab: 'strikes',
   setActiveTab: (tab) => set({ activeTab: tab }),
+
+  selectedTarget: null,
+  setSelectedTarget: (target) => set({ selectedTarget: target }),
 
   helpOpen: false,
   toggleHelp: () => set((s) => ({ helpOpen: !s.helpOpen })),
